@@ -804,6 +804,7 @@ double ScaLBL_ColorModel::Run(int returntime) {
             if ((fabs((Ca - Ca_previous) / Ca) < tolerance &&
                  CURRENT_TIMESTEP > MIN_STEADY_TIMESTEPS))
                 isSteady = true;
+            Ca_previous=Ca;
             if (CURRENT_TIMESTEP >= MAX_STEADY_TIMESTEPS)
                 isSteady = true;
 
