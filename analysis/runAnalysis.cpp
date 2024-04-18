@@ -461,7 +461,7 @@ public:
         }
         if (matches(type, AnalysisType::ComputeAverages)) {
             PROFILE_START("Compute basic averages", 1);
-            Averages.Basic();
+            Averages.Basic(timestep);
             PROFILE_STOP("Compute basic averages", 1);
         }
     }
