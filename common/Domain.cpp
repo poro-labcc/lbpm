@@ -659,11 +659,27 @@ void Domain::Decomp(const std::string &Filename) {
                     }
                 }
             }
-            for (size_t idx = 0; idx < ReadValues.size(); idx++) {
-                long int label = ReadValues[idx];
-                long int count = LabelCount[idx];
-                printf("Label=%ld, Count=%ld \n", label, count);
-            }
+            long int PoreCount=0;
+    		for (size_t idx = 0; idx < ReadValues.size(); idx++) {
+    			long int label = ReadValues[idx];
+    			long int count = LabelCount[idx];
+    			printf("Label=%ld, Count=%ld \n", label, count);
+                if (label<=0){
+                    PoreCount +=count;
+                }
+                if (label>0){
+                    long int FluidsCount=0;
+                    for (size_t idx = 0; idx < ReadValues.size(); idx++) {
+                        long int label2 = ReadValues[idx];
+                        long int count2 = LabelCount[idx];
+                        if (label2>0){
+                            FluidsCount+=count2;
+                        }
+                    }
+                    printf("Label=%ld, Total Image Fluid Saturation=%f, PoreCount=%ld \n", label, float(count)/float(FluidsCount), count);
+                }
+    		}
+            printf("Total Image Porosity=%f, PoreCount=%ld \n", 1.0-float(PoreCount)/float(global_Nx*global_Ny*global_Nz), PoreCount);
             if (USE_CHECKER) {
                 if (inlet_layers_x > 0) {
                     // use checkerboard pattern
