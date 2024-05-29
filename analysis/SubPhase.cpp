@@ -256,9 +256,10 @@ void SubPhase::Basic(int timestep) {
                     double nA = Rho_n(n);
                     double nB = Rho_w(n);
                     double phi = (nA - nB) / (nA + nB);
+                    nb.V += nA;
+                    wb.V += nB;
                     if (phi > 0.0) {
                         nA = 1.0;
-                        nb.V += 1.0;
                         nb.M += nA * rho_n;
                         // velocity
                         nb.Px += rho_n * nA * Vel_x(n);
@@ -267,7 +268,6 @@ void SubPhase::Basic(int timestep) {
                     } else {
                         nB = 1.0;
                         wb.M += nB * rho_w;
-                        wb.V += 1.0;
 
                         // velocity
                         wb.Px += rho_w * nB * Vel_x(n);
