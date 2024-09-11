@@ -1,3 +1,6 @@
+#ifndef MRTMODEL_H
+#define MRTMODEL_H
+
 /*
   Copyright 2013--2018 James E. McClure, Virginia Polytechnic & State University
   Copyright Equnior ASA
@@ -92,3 +95,5 @@ private:
     //int rank,nprocs;
     void LoadParams(std::shared_ptr<Database> db0);
 };
+
+#endif // MRTMODEL_H
