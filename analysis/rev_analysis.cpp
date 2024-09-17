@@ -223,6 +223,7 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
                 }
             }
         }
+
         if (count == 0)
         {
             vax = 0.0;
@@ -260,6 +261,7 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
         poro[iter_step] = current_poro;
         perm[iter_step] = current_perm;
         tort[iter_step] = current_tort;
+        
 
 
         // Porosity
@@ -388,6 +390,7 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
                 strd_dev += (stat_poro[l] - mean) * (stat_poro[l] - mean);
 
             strd_dev = sqrt(strd_dev / (stat_samples));
+
             if(mean != 0)
             stat_CC = strd_dev / mean;
         }
@@ -589,7 +592,6 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
 
             strd_dev = sqrt(strd_dev / tort_count);
 
-            if(mean != 0)
             CC = strd_dev / mean;
             if((tort[iter_step] + tort[(iter_step - 1)]) != 0)
             RE = 2 * fabs((tort[iter_step] - tort[(iter_step - 1)]) / (tort[iter_step] + tort[(iter_step - 1)]));
