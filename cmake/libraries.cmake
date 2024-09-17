@@ -1,0 +1,283 @@
+INCLUDE( "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Find_TIMER.cmake" )
+INCLUDE(CheckCCompilerFlag)
+INCLUDE(CheckCXXCompilerFlag)
+
+
+FUNCTION( CONFIGURE_LINE_COVERAGE )
+    SET( COVERAGE_FLAGS )
+    SET( COVERAGE_LIBS )
+    IF ( ENABLE_GCOV )
+        SET( COVERAGE_FLAGS -DUSE_GCOV )
+        SET( CMAKE_REQUIRED_FLAGS ${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage )
+        CHECK_CXX_SOURCE_COMPILES( "int main() { return 0;}" profile-arcs )
+        IF ( profile-arcs )
+            SET( COVERAGE_FLAGS "${COVERAGE_FLAGS} -fprofile-arcs -ftest-coverage" )
+            SET( COVERAGE_LIBS ${COVERAGE_LIBS} -fprofile-arcs )
+        ENDIF()
+        SET( CMAKE_REQUIRED_FLAGS "${CMAKE_CXX_FLAGS} ${COVERAGE_FLAGS} -lgcov" )
+        CHECK_CXX_SOURCE_COMPILES( "int main() { return 0;}" lgcov )
+        IF ( lgcov )
+            SET( COVERAGE_LIBS -lgcov ${COVERAGE_LIBS} )
+        ENDIF()
+        MESSAGE("Enabling coverage:")
+        MESSAGE("   COVERAGE_FLAGS = ${COVERAGE_FLAGS}")
+        MESSAGE("   COVERAGE_LIBS = ${COVERAGE_LIBS}")
+        ADD_DEFINITIONS( ${COVERAGE_FLAGS} )
+        SET( COVERAGE_FLAGS ${COVERAGE_FLAGS} PARENT_SCOPE )
+        SET( COVERAGE_LIBS  ${COVERAGE_LIBS}  PARENT_SCOPE )
+    ENDIF()
+ENDFUNCTION()
+
+
+# Macro to configure MIC
+MACRO( CONFIGURE_MIC )
+    CHECK_ENABLE_FLAG( USE_MIC 0 )
+    IF ( USE_MIC )
+        ADD_DEFINITIONS( "-D USE_MIC" )
+    ENDIF()
+ENDMACRO()
+
+
+# Macro to find and configure the MPI libraries
+MACRO( CONFIGURE_MPI )
+    # Determine if we want to use MPI
+    CHECK_ENABLE_FLAG( USE_MPI 1 )
+    IF ( USE_MPI )
+        MESSAGE( "Configuring MPI" )
+        IF ( MPIEXEC )
+            SET( MPIEXEC_EXECUTABLE ${MPIEXEC} )
+        ENDIF()
+        IF ( NOT MPI_SKIP_SEARCH )
+            FIND_PACKAGE( MPI )
+        ELSE()
+            # Write mpi test
+            SET( MPI_TEST_SRC "${CMAKE_CURRENT_BINARY_DIR}/test_mpi.cpp" )
+            FILE(WRITE  ${MPI_TEST_SRC} "#include <mpi.h>\n" )
+            FILE(APPEND ${MPI_TEST_SRC} "int main(int argc, char** argv) {\n" )
+            FILE(APPEND ${MPI_TEST_SRC} "    MPI_Init(NULL, NULL);\n")
+            FILE(APPEND ${MPI_TEST_SRC} "    MPI_Finalize();\n" )
+            FILE(APPEND ${MPI_TEST_SRC} "}\n" )
+            # Test the compile
+            IF ( CMAKE_CXX_COMPILER )
+                SET( TMP_FLAGS -DINCLUDE_DIRECTORIES=${MPI_CXX_INCLUDE_PATH} )
+                TRY_COMPILE( MPI_TEST_CXX ${CMAKE_CURRENT_BINARY_DIR} ${MPI_TEST_SRC}
+                    CMAKE_FLAGS ${TMP_FLAGS}
+                    LINK_OPTIONS ${MPI_CXX_LINK_FLAGS}
+                    LINK_LIBRARIES ${MPI_CXX_LIBRARIES}
+                    OUTPUT_VARIABLE OUT_TXT)
+                IF ( NOT ${MPI_TEST} )
+                    MESSAGE( FATAL_ERROR "Skipping MPI search and default compile fails:\n${OUT_TXT}" )
+                ENDIF()
+                SET( MPI_C_FOUND TRUE )
+                SET( MPI_CXX_FOUND TRUE )
+                SET( MPI_Fortran_FOUND TRUE )
+            ENDIF()
+        ENDIF()
+        STRING( STRIP "${MPI_CXX_COMPILE_FLAGS}" MPI_CXX_COMPILE_FLAGS )
+        STRING( STRIP "${MPI_CXX_LINK_FLAGS}" MPI_CXX_LINK_FLAGS )
+        STRING( STRIP "${MPI_CXX_LIBRARIES}" MPI_CXX_LIBRARIES )
+        MESSAGE( "   MPI_CXX_FOUND = ${MPI_CXX_FOUND}" )
+        MESSAGE( "   MPI_CXX_COMPILER = ${MPI_CXX_COMPILER}" )
+        MESSAGE( "   MPI_CXX_COMPILE_FLAGS = ${MPI_CXX_COMPILE_FLAGS}" )
+        MESSAGE( "   MPI_CXX_INCLUDE_PATH = ${MPI_CXX_INCLUDE_PATH}" )
+        MESSAGE( "   MPI_CXX_LINK_FLAGS = ${MPI_CXX_LINK_FLAGS}" )
+        MESSAGE( "   MPI_CXX_LIBRARIES = ${MPI_CXX_LIBRARIES}" )
+        MESSAGE( "   MPIEXEC = ${MPIEXEC}" )
+        MESSAGE( "   MPIEXEC_NUMPROC_FLAG = ${MPIEXEC_NUMPROC_FLAG}" )
+        MESSAGE( "   MPIEXEC_PREFLAGS = ${MPIEXEC_PREFLAGS}" )
+        MESSAGE( "   MPIEXEC_POSTFLAGS = ${MPIEXEC_POSTFLAGS}" )
+        ADD_DEFINITIONS( -DUSE_MPI )
+        INCLUDE_DIRECTORIES( ${MPI_CXX_INCLUDE_PATH} )
+        SET( MPI_LIBRARIES ${MPI_CXX_LIBRARIES} )
+        SET( MPI_LINK_FLAGS ${MPI_CXX_LINK_FLAGS} )
+        IF ( NOT MPI_CXX_FOUND )
+            MESSAGE( FATAL_ERROR "MPI not found" )
+        ENDIF()
+        IF ( USE_MPI AND NOT MPIEXEC )
+            MESSAGE( FATAL_ERROR "Unable to find MPIEXEC, please set it before continuing" )
+        ENDIF()
+    ENDIF()
+ENDMACRO()
+
+
+# Macro to find and configure hdf5
+MACRO ( CONFIGURE_HDF5 )
+    CHECK_ENABLE_FLAG( USE_HDF5 0 )
+    IF ( USE_HDF5 AND NOT FOUND_HDF5 )
+        # Check if we specified the hdf5 directory
+        IF ( HDF5_DIRECTORY )
+            VERIFY_PATH ( ${HDF5_DIRECTORY} )
+            INCLUDE_DIRECTORIES ( ${HDF5_DIRECTORY}/include )
+            SET( HDF5_INCLUDE ${HDF5_DIRECTORY}/include )
+            FIND_LIBRARY ( HDF5_LIB    NAMES hdf5    PATHS ${HDF5_DIRECTORY}/lib  NO_DEFAULT_PATH )
+            FIND_LIBRARY ( HDF5_HL_LIB NAMES hdf5_hl PATHS ${HDF5_DIRECTORY}/lib  NO_DEFAULT_PATH )
+        ELSE()
+            MESSAGE( FATAL_ERROR "Default search for hdf5 is not yet supported.  Use -D HDF5_DIRECTORY=" )
+        ENDIF()
+        SET ( HDF5_LIBS
+            ${HDF5_HL_LIB}
+            ${HDF5_LIB}
+        )
+        SET( FOUND_HDF5 TRUE )
+        SET( EXTERNAL_LIBS ${HDF5_LIBS} ${EXTERNAL_LIBS} )
+        ADD_DEFINITIONS ( -DUSE_HDF5 )  
+        MESSAGE( "Using hdf5" )
+        MESSAGE( "   ${HDF5_LIB}" )
+    ENDIF()
+ENDMACRO()
+
+
+# Macro to find and configure netcdf
+MACRO( CONFIGURE_NETCDF )
+    CHECK_ENABLE_FLAG( USE_NETCDF 0 )
+    IF ( USE_NETCDF )
+        SET( USE_HDF5 1 )
+        CONFIGURE_HDF5()
+        IF ( NETCDF_DIRECTORY )
+            VERIFY_PATH ( ${NETCDF_DIRECTORY} )
+            INCLUDE_DIRECTORIES ( ${NETCDF_DIRECTORY}/include )
+            SET ( NETCDF_INCLUDE ${NETCDF_DIRECTORY}/include )
+            FIND_LIBRARY( NETCDF_NETCDF_LIB    NAMES netcdf    PATHS ${NETCDF_DIRECTORY}/lib  NO_DEFAULT_PATH )
+            FIND_LIBRARY( NETCDF_HDF5_LIB      NAMES hdf5      PATHS ${NETCDF_DIRECTORY}/lib  NO_DEFAULT_PATH )
+            FIND_LIBRARY( NETCDF_HL_LIB        NAMES hl        PATHS ${NETCDF_DIRECTORY}/lib  NO_DEFAULT_PATH )
+            IF ( NOT NETCDF_NETCDF_LIB )
+                MESSAGE( FATAL_ERROR "Did not find library for netcdf" )
+            ENDIF()
+            SET ( NETCDF_LIBS ${NETCDF_NETCDF_LIB} )
+            IF ( NETCDF_HDF5_LIB )
+                SET ( NETCDF_LIBS ${NETCDF_LIBS} ${NETCDF_HDF5_LIB} )
+            ENDIF()
+            IF ( NETCDF_HL_LIB )
+                SET ( NETCDF_LIBS ${NETCDF_LIBS} ${NETCDF_HL_LIB} )
+            ENDIF()
+        ELSE()
+            MESSAGE( FATAL_ERROR "Default search for netcdf is not yet supported.  Use -D NETCDF_DIRECTORY=" )
+        ENDIF()
+        SET( EXTERNAL_LIBS ${NETCDF_LIBS} ${EXTERNAL_LIBS} )
+        ADD_DEFINITIONS ( -DUSE_NETCDF )
+        MESSAGE( "Using netcdf" )
+        MESSAGE( "   ${NETCDF_LIBS}" )
+    ENDIF()
+ENDMACRO()
+
+
+# Macro to find and configure the silo libraries
+MACRO ( CONFIGURE_SILO )
+    # Determine if we want to use silo
+    CHECK_ENABLE_FLAG( USE_EXT_SILO 0 )
+    IF ( USE_SILO )
+        SET( USE_HDF5 1 )
+        CONFIGURE_HDF5()
+        # Check if we specified the silo directory
+        IF ( SILO_DIRECTORY )
+            VERIFY_PATH ( ${SILO_DIRECTORY} )
+            INCLUDE_DIRECTORIES ( ${SILO_DIRECTORY}/include )
+            SET ( SILO_INCLUDE ${SILO_DIRECTORY}/include )
+            FIND_LIBRARY ( SILO_LIB  NAMES siloh5  PATHS ${SILO_DIRECTORY}/lib  NO_DEFAULT_PATH )
+        ELSE()
+            MESSAGE( "Default search for silo is not yet supported")
+            MESSAGE( "Use -D SILO_DIRECTORY=" FATAL_ERROR)
+        ENDIF()
+        SET ( SILO_LIBS
+            ${SILO_LIB}
+        )
+        SET( EXTERNAL_LIBS ${SILO_LIBS} ${EXTERNAL_LIBS} )
+        ADD_DEFINITIONS ( -DUSE_SILO )  
+        MESSAGE( "Using silo" )
+        MESSAGE( "   ${SILO_LIB}" )
+    ENDIF ()
+ENDMACRO()
+
+
+# Macro to configure system-specific libraries and flags
+MACRO( CONFIGURE_SYSTEM )
+    # First check/set the compile mode
+    IF( NOT CMAKE_BUILD_TYPE )
+        MESSAGE(FATAL_ERROR "CMAKE_BUILD_TYPE is not set")
+    ENDIF()
+    # Remove extra library links
+    # Get the compiler
+    SET_COMPILER_FLAGS()
+    CHECK_ENABLE_FLAG( USE_STATIC 0 )
+    # Add system dependent flags
+    MESSAGE("System is: ${CMAKE_SYSTEM_NAME}")
+    IF ( ${CMAKE_SYSTEM_NAME} STREQUAL "Windows" )
+        # Windows specific system libraries
+        SET( SYSTEM_PATHS "C:/Program Files (x86)/Microsoft SDKs/Windows/v7.0A/Lib/x64" 
+                          "C:/Program Files (x86)/Microsoft Visual Studio 8/VC/PlatformSDK/Lib/AMD64" 
+                          "C:/Program Files (x86)/Microsoft Visual Studio 12.0/Common7/Packages/Debugger/X64" )
+        FIND_LIBRARY( PSAPI_LIB    NAMES Psapi    PATHS ${SYSTEM_PATHS}  NO_DEFAULT_PATH )
+        FIND_LIBRARY( DBGHELP_LIB  NAMES DbgHelp  PATHS ${SYSTEM_PATHS}  NO_DEFAULT_PATH )
+        FIND_LIBRARY( DBGHELP_LIB  NAMES DbgHelp )
+        IF ( PSAPI_LIB ) 
+            ADD_DEFINITIONS( -D PSAPI )
+            SET( SYSTEM_LIBS ${PSAPI_LIB} )
+        ENDIF()
+        IF ( DBGHELP_LIB ) 
+            ADD_DEFINITIONS( -D DBGHELP )
+            SET( SYSTEM_LIBS ${DBGHELP_LIB} )
+        ELSE()
+            MESSAGE( WARNING "Did not find DbgHelp, stack trace will not be availible" )
+        ENDIF()
+        MESSAGE("System libs: ${SYSTEM_LIBS}")
+    ELSEIF( ${CMAKE_SYSTEM_NAME} STREQUAL "Linux" )
+        # Linux specific system libraries
+        SET( SYSTEM_LIBS -lz -lpthread -ldl )
+        IF ( NOT USE_STATIC )
+            # Try to add rdynamic so we have names in backtrace
+            SET( CMAKE_REQUIRED_FLAGS "${CMAKE_CXX_FLAGS} ${COVERAGE_FLAGS} -rdynamic" )
+            CHECK_CXX_SOURCE_COMPILES( "int main() { return 0;}" rdynamic )
+            IF ( rdynamic )
+                SET( SYSTEM_LDFLAGS ${SYSTEM_LDFLAGS} -rdynamic )
+            ENDIF()
+        ENDIF()
+        # Try to add -fPIC
+        SET( CMAKE_REQUIRED_FLAGS "${CMAKE_CXX_FLAGS} ${COVERAGE_FLAGS} -fPIC" )
+        CHECK_CXX_SOURCE_COMPILES( "int main() { return 0;}" fPIC )
+        IF ( fPIC )
+            SET( SYSTEM_LDFLAGS ${SYSTEM_LDFLAGS} -fPIC )
+            SET( SYSTEM_LDFLAGS ${SYSTEM_LDFLAGS} -fPIC )
+        ENDIF()
+        IF ( USING_GCC )
+            SET( SYSTEM_LIBS ${SYSTEM_LIBS} -lgfortran )
+            SET(CFLAGS_EXTRA   " ${CFLAGS_EXTRA} -fPIC" )
+            SET(CXXFLAGS_EXTRA " ${CXXFLAGS_EXTRA} -fPIC" )
+        ENDIF()
+    ELSEIF( ${CMAKE_SYSTEM_NAME} STREQUAL "Darwin" )
+        # Max specific system libraries
+        SET( SYSTEM_LIBS -lz -lpthread -ldl )
+    ELSEIF( ${CMAKE_SYSTEM_NAME} STREQUAL "Generic" )
+        # Generic system libraries
+    ELSE()
+        MESSAGE( FATAL_ERROR "OS not detected" )
+    ENDIF()
+    # Add the static flag if necessary
+    IF ( USE_STATIC )
+        SET_STATIC_FLAGS()
+    ENDIF()
+    # Print some flags
+    MESSAGE( "LDLIBS = ${LDLIBS}" )
+ENDMACRO ()
+
+
+# Macro to configure LBPM specific options
+MACRO ( CONFIGURE_LBPM )
+    # Set the maximum number of processors for the tests
+    IF ( NOT DEFINED TEST_MAX_PROCS )
+        SET( TEST_MAX_PROCS 32 )
+    ENDIF()
+    # Add the correct paths to rpath in case we build shared libraries
+    IF ( USE_STATIC )
+        SET( CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE )
+        SET( CMAKE_BUILD_WITH_INSTALL_RPATH FALSE )
+    ELSE()
+        SET( CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE )
+        SET( CMAKE_BUILD_WITH_INSTALL_RPATH TRUE )
+        SET( CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_RPATH} "${TIMER_DIRECTORY}" "${LBPM_INSTALL_DIR}/lib" )
+    ENDIF()
+    # Suppress some common warnings
+    IF ( USING_GCC )
+        SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-reorder -Wno-unused-parameter")
+        SET( CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -Wno-reorder,-Wno-unused-parameter")
+    ENDIF()
+ENDMACRO ()
