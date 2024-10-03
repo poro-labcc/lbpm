@@ -52,7 +52,8 @@ int main(int argc, char **argv)
 		MRT.Initialize();   // initializing the model will set initial conditions for variables
 		MRT.Run();	 
 		MRT.VelocityField();
-		REV.RevAnalysis(MRT);
+		REV.DetRevAnalysis(MRT);
+		REV.StatRevAnalysis(MRT);
 		cout << flush;
 	}
     Utilities::shutdown();

@@ -39,8 +39,11 @@
 
 class REVfunc {
 public:
-    void PoreSize(double& average_pore_size, ScaLBL_MRTModel& model);
-    void RevAnalysis(ScaLBL_MRTModel& model);
+    double average_pore_size;
+    double rev_x_poro, rev_x_perm, rev_x_tort;
+    void PoreSize(ScaLBL_MRTModel& model);
+    void DetRevAnalysis(ScaLBL_MRTModel& model);
+    void StatRevAnalysis(ScaLBL_MRTModel& model);
 };
 
 #endif // REV_ANALYSIS_H

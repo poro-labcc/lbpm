@@ -24,9 +24,12 @@
 #include <cmath>
 #include <algorithm>
 
-void REVfunc::PoreSize(double &average_pore_size, ScaLBL_MRTModel &MRT) {
+void REVfunc::PoreSize(ScaLBL_MRTModel &MRT) {
     int iter = 1;
     int Nx = MRT.Nx, Ny = MRT.Ny, Nz = MRT.Nz;
+    rev_x_poro = -1;
+    rev_x_perm = -1;
+    rev_x_tort = -1;
 
     std::vector<std::vector<std::vector<double>>> distance_updated(
         Nx, std::vector<std::vector<double>>(Ny, std::vector<double>(Nz)));
@@ -145,19 +148,14 @@ void REVfunc::PoreSize(double &average_pore_size, ScaLBL_MRTModel &MRT) {
               << std::endl;
 }
 
-void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
-    double average_pore_size = 1.0;
-
-    PoreSize(average_pore_size, MRT);
-
+void REVfunc::DetRevAnalysis(ScaLBL_MRTModel &MRT) {
+    PoreSize(MRT);
     int Nx = MRT.Nx, Ny = MRT.Ny, Nz = MRT.Nz;
-    double rev_x_perm = -1.0, rev_x_poro = -1.0, rev_x_tort = -1.0;
     int iter_step = 0, side_step = static_cast<int>(average_pore_size);
     double gamma = 0.1;
     double h = MRT.Dm->voxel_length;
     double mu = (MRT.tau - 0.5) / 3.f;
     int samples = 20; //samples to be used in deterministic standard deviation
-    int stat_samples = 100; //samples to be used in statistical approach
     int x_side = 2 * static_cast<int>(average_pore_size); //starting x-side
 
     // Arrays for porosity, permeability and subdomain size
@@ -170,19 +168,19 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
 
     while (x_side < Nx - 2) {
         bool WriteHeader = false;
-        FILE *log_file = fopen("rev_analysis.csv", "r");
+        FILE *log_file = fopen("det_rev_analysis.csv", "r");
         if (log_file != NULL)
             fclose(log_file);
         else
             WriteHeader = true;
 
         if (WriteHeader) {
-            log_file = fopen("rev_analysis.csv", "a+");
+            log_file = fopen("det_rev_analysis.csv", "a+");
             fprintf(
                 log_file, "iter_step average_pore_size x_side "
-                          "porosity rev_poro RE_poro CC_poro stat_poro stat_poro_mean stat_poro_max stat_poro_min "
-                          "permeability rev_perm RE_perm CC_perm stat_perm stat_perm_mean stat_perm_max stat_perm_min "
-                          "tortuosity rev_tort RE_tort CC_tort stat_tort stat_tort_mean stat_tort_max stat_tort_min\n");
+                          "porosity rev_poro RE_poro CC_poro "
+                          "permeability rev_perm RE_perm CC_perm "
+                          "tortuosity rev_tort RE_tort CC_tort\n");
             fclose(log_file);
         }
 
@@ -313,91 +311,13 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
         }
 
         if (RE < gamma && CC < gamma && rev_x_poro == -1) {
-            rev_x_poro = x_side * h;
+            rev_x_poro = x_side;
         }
 
 
-        //Porosity statistical approach
-
-        double stat_CC = 10;
-        double stat_min = 1e100;
-        double stat_max = -1e100;
-        mean = 0.0;
-        strd_dev = 0.0;
-
-        if (rev_x_poro != -1) {
-
-            std::vector<double> stat_poro(stat_samples);
-
-            // Ensure sub_x_size[iter_step] is a positive number
-            int sub_x = static_cast<int>(sub_x_size[iter_step]);
-            int sub_y = std::floor((sub_x) * (Ny - 2) / (Nx - 2)) + 1;
-            int sub_z = std::floor((sub_x) * (Nz - 2) / (Nx - 2)) + 1;
-
-            printf("\n\nNy = %d, sub_y = %d\n\n", Ny, sub_y);
-
-            for (int l = 0; l < stat_samples; l++) {
-                double stat_current_pore_count = 0.0;
-
-                // Calculate the range for the starting positions
-                int range_x = (Nx - 2) - sub_x +
-                              1; // +1 to include the last valid start position
-                int range_y = (Ny - 2) - sub_y + 1;
-                int range_z = (Nz - 2) - sub_z + 1;
-
-                // Randomly select start positions within valid ranges
-                int start_x = 1 + rand() % range_x;
-                int start_y = 1 + rand() % range_y;
-                int start_z = 1 + rand() % range_z;
-
-                // Calculate end positions
-                int end_x = start_x + sub_x - 1;
-                int end_y = start_y + sub_y - 1;
-                int end_z = start_z + sub_z - 1;
-
-                start_x = std::max(1, start_x);
-                end_x = std::min(Nx-2, end_x);
-                start_y = std::max(1, start_y);
-                end_y = std::min(Ny-2, end_y);
-                start_z = std::max(1, start_z);
-                end_z = std::min(Nz-2, end_z);
-
-
-                // Count pores
-                for (int k = start_z; k <= end_z; k++) {
-                    for (int j = start_y; j <= end_y; j++) {
-                        for (int i = start_x; i <= end_x; i++) {
-                            if (MRT.Distance(i, j, k) > 0) {
-                                stat_current_pore_count++;
-                            }
-                        }
-                    }
-                }
-
-                // Compute porosity
-                    stat_poro[l] = stat_current_pore_count / ((end_x - start_x + 1) * (end_y - start_y + 1) * (end_z - start_z + 1));
-            }
-
-            for (int l = 0; l < stat_samples; l++) {
-                mean += stat_poro[l] / (stat_samples);
-                if (stat_poro[l] > stat_max)
-                    stat_max = stat_poro[l];
-                if (stat_poro[l] < stat_min)
-                    stat_min = stat_poro[l];
-            }
-
-            for (int l = 0; l < stat_samples; l++)
-                strd_dev += (stat_poro[l] - mean) * (stat_poro[l] - mean);
-
-            strd_dev = sqrt(strd_dev / (stat_samples));
-
-            if(mean != 0)
-            stat_CC = strd_dev / mean;
-        }
-
-        log_file = fopen("rev_analysis.csv", "a");
-        fprintf(log_file, "%d %f %f %f %f %f %f %f %f %f %f ", iter_step, average_pore_size * h, sub_x_size[iter_step] * h,
-         poro[iter_step], rev_x_poro, RE, CC, stat_CC, mean, stat_max, stat_min);
+        log_file = fopen("det_rev_analysis.csv", "a");
+        fprintf(log_file, "%d %f %f %f %f %f %f ", iter_step, average_pore_size * h, sub_x_size[iter_step] * h,
+         poro[iter_step], rev_x_poro, RE, CC);
         fclose(log_file);
         // }
 
@@ -451,120 +371,12 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
         }
 
         if (RE < gamma && CC < gamma && rev_x_perm == -1) {
-            rev_x_perm = x_side * h;
+            rev_x_perm = x_side;
         }
 
 
-        // Permeability statistical approach
-
-        stat_CC = -1.0;
-        stat_min = 1e100;
-        stat_max = -1e100;
-        mean = 0.0;
-        strd_dev = 0.0;
-
-        if (rev_x_perm != -1) {
-            std::vector<double> stat_perm(stat_samples);
-
-            // Ensure sub_x_size[iter_step] is a positive number
-            int sub_x = static_cast<int>(sub_x_size[iter_step]);
-            int sub_y = std::floor((sub_x) * (Ny - 2) / (Nx - 2)) + 1;
-            int sub_z = std::floor((sub_x) * (Nz - 2) / (Nx - 2)) + 1;
-
-            printf("\n\nNy = %d, sub_y = %d\n\n", Ny, sub_y);
-
-            for (int l = 0; l < stat_samples; l++) {
-
-                // Calculate the range for the starting positions
-                int range_x = (Nx - 2) - sub_x +
-                              1; // +1 to include the last valid start position
-                int range_y = (Ny - 2) - sub_y + 1;
-                int range_z = (Nz - 2) - sub_z + 1;
-
-                // Randomly select start positions within valid ranges
-                int start_x = 1 + rand() % range_x;
-                int start_y = 1 + rand() % range_y;
-                int start_z = 1 + rand() % range_z;
-
-                // Calculate end positions
-                int end_x = start_x + sub_x - 1;
-                int end_y = start_y + sub_y - 1;
-                int end_z = start_z + sub_z - 1;
-
-
-                start_x = std::max(1, start_x);
-                end_x = std::min(Nx-2, end_x);
-                start_y = std::max(1, start_y);
-                end_y = std::min(Ny-2, end_y);
-                start_z = std::max(1, start_z);
-                end_z = std::min(Nz-2, end_z);
-
-
-                vax = 0.0;
-                vay = 0.0;
-                vaz = 0.0;
-                count = 0.0;
-
-                for (int k = start_z; k <= end_z; k++) {
-                    for (int j = start_y; j <= end_y; j++) {
-                        for (int i = start_x; i <= end_x; i++) {
-                            if (MRT.Distance(i, j, k) > 0) {
-                                vax += MRT.Velocity_x(i, j, k);
-                                vay += MRT.Velocity_y(i, j, k);
-                                vaz += MRT.Velocity_z(i, j, k);
-                                count += 1.0;
-                            }
-                        }
-                    }
-                }
-
-                if (count == 0)
-                {
-                    vax = 0.0;
-                    vay = 0.0;
-                    vaz = 0.0;
-                } else {
-                    vax /= count;
-                    vay /= count;
-                    vaz /= count;}
-
-                // Default to z direction
-                double force_mag = sqrt(MRT.Fx * MRT.Fx + MRT.Fy * MRT.Fy + MRT.Fz * MRT.Fz);
-                double dir_x = MRT.Fx / force_mag;
-                double dir_y = MRT.Fy / force_mag;
-                double dir_z = MRT.Fz / force_mag;
-                if (force_mag == 0.0) {
-                    // default to z direction
-                    dir_x = 0.0;
-                    dir_y = 0.0;
-                    dir_z = 1.0;
-                    force_mag = 1.0;
-                }
-
-                double flow_rate = (vax * dir_x + vay * dir_y + vaz * dir_z);
-
-                current_poro = count / ((end_x - start_x + 1) * (end_y - start_y + 1) * (end_z - start_z + 1));
-                stat_perm[l] = 1013 * h * h * mu * current_poro * flow_rate / force_mag;
-            }
-
-            for (int l = 0; l < stat_samples; l++) {
-                mean += stat_perm[l] / (stat_samples);
-                if (stat_perm[l] > stat_max)
-                    stat_max = stat_perm[l];
-                if (stat_perm[l] < stat_min)
-                    stat_min = stat_perm[l];
-            }
-
-            for (int l = 0; l < stat_samples; l++)
-                strd_dev += (stat_perm[l] - mean) * (stat_perm[l] - mean);
-
-            strd_dev = sqrt(strd_dev / (stat_samples));
-
-            stat_CC = strd_dev / mean;
-        }
-
-        log_file = fopen("rev_analysis.csv", "a");
-        fprintf(log_file, "%f %f %f %f %f %f %f %f ", perm[iter_step], rev_x_perm, RE, CC, stat_CC, mean, stat_max, stat_min);
+        log_file = fopen("det_rev_analysis.csv", "a");
+        fprintf(log_file, "%f %f %f %f ", perm[iter_step], rev_x_perm, RE, CC);
         fclose(log_file);
 
         // tortuosity
@@ -623,113 +435,14 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
 
         if (RE < gamma && CC < gamma && rev_x_tort == -1)
         {
-            rev_x_tort = x_side * h;
+            rev_x_tort = x_side;
         }
 
-        stat_CC = -1.0;
-        stat_min = 1e100;
-        stat_max = -1e100;
-        mean = 0.0;
-        strd_dev = 0.0;
-
-        // statistical tortuosity
-
-        if (rev_x_tort != -1)
-        {
-
-            std::vector<double> stat_tort(stat_samples);
-
-            // Ensure sub_x_size[iter_step] is a positive number
-            int sub_x = static_cast<int>(sub_x_size[iter_step]);
-            int sub_y = std::floor((sub_x) * (Ny - 2) / (Nx - 2)) + 1;
-            int sub_z = std::floor((sub_x) * (Nz - 2) / (Nx - 2)) + 1;
-
-            printf("\n\nNy = %d, sub_y = %d\n\n", Ny, sub_y);
-
-            for (int l = 0; l < stat_samples; l++) {
-
-                // Calculate the range for the starting positions
-                int range_x = (Nx - 2) - sub_x +
-                              1; // +1 to include the last valid start position
-                int range_y = (Ny - 2) - sub_y + 1;
-                int range_z = (Nz - 2) - sub_z + 1;
-
-                // Randomly select start positions within valid ranges
-                int start_x = 1 + rand() % range_x;
-                int start_y = 1 + rand() % range_y;
-                int start_z = 1 + rand() % range_z;
-
-                // Calculate end positions
-                int end_x = start_x + sub_x - 1;
-                int end_y = start_y + sub_y - 1;
-                int end_z = start_z + sub_z - 1;
-
-                start_x = std::max(1, start_x);
-                end_x = std::min(Nx-2, end_x);
-                start_y = std::max(1, start_y);
-                end_y = std::min(Ny-2, end_y);
-                start_z = std::max(1, start_z);
-                end_z = std::min(Nz-2, end_z);
+        log_file = fopen("det_rev_analysis.csv", "a");
+        fprintf(log_file, "%f %f %f %f\n", tort[iter_step]+1, rev_x_tort, RE, CC);
+        fclose(log_file);
 
 
-                v_tort = 0.0;
-                vaz = 0.0;
-               
-
-                for (int k = start_z; k <= end_z; k++) // LEMBRANDO: camadas extra
-                {
-                    for (int j = start_y; j <= end_y; j++)
-                    {
-                        for (int i = start_x; i <= end_x; i++)
-                        {
-                            if (MRT.Distance(i, j, k) > 0)
-                            {
-                                v_tort += sqrt(MRT.Velocity_x(i, j, k)*MRT.Velocity_x(i, j, k) + MRT.Velocity_y(i, j, k)*MRT.Velocity_y(i, j, k) + MRT.Velocity_z(i, j, k)*MRT.Velocity_z(i, j, k));
-                                vaz += MRT.Velocity_z(i,j,k);
-                            }
-                        }
-                    }
-                }
-
-                if (vaz > 0)
-                    stat_tort[l]= v_tort / vaz - 1;
-                else
-                    stat_tort[l] = 1e100;
-            }
-
-            double stat_tort_count = 0;
-
-            for (int l = 0; l < stat_samples; l++)
-            {
-                if (stat_tort[l] != 1e100){
-                mean += stat_tort[l];
-                stat_tort_count++;
-                if (stat_tort[l] > stat_max)
-                    stat_max = stat_tort[l];
-                if (stat_tort[l] < stat_min)
-                    stat_min = stat_tort[l];
-                }
-            }
-            mean = mean / stat_tort_count;
-
-            for (int l = 0; l < stat_samples; l++)
-                if (stat_tort[l] != 1e100)
-                    strd_dev += (stat_tort[l] - mean) * (stat_tort[l] - mean);
-
-            strd_dev = sqrt(strd_dev / (stat_tort_count));
-
-            stat_CC = strd_dev / mean;
-            mean +=1;
-        }
-
-        // if (rank == 0)
-        // { // aqui, nada mais está em voxels
-            log_file = fopen("rev_analysis.csv", "a");
-            fprintf(log_file, "%f %f %f %f %f %f %f %f\n", tort[iter_step] + 1, rev_x_tort, RE, CC, stat_CC, mean, stat_max+1, stat_min+1);
-            fclose(log_file);
-        //}
-
-        printf(" %d\n", iter_step);
         x_side += side_step;
         iter_step++;
     }
@@ -777,7 +490,6 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
         }
 
         double flow_rate = (vax * dir_x + vay * dir_y + vaz * dir_z);
-
         double current_poro = count / ((Nx-2) * (Ny-2) * (Nz-2)); //porosity
         double current_perm = 1013 * h * h * mu * current_poro * flow_rate / force_mag; //permeability
         double current_tort = 1e100;
@@ -785,8 +497,227 @@ void REVfunc::RevAnalysis(ScaLBL_MRTModel &MRT) {
             current_tort = v_tort / (vaz*count);
 
 
-            FILE *log_file = fopen("rev_analysis.csv", "a");
-            fprintf(log_file, "- %f %d %f %f - - - - - - %f %f - - - - - - %f %f - - - - - -", average_pore_size, Nx-2, current_poro, rev_x_poro, current_perm, rev_x_perm, current_tort, rev_x_tort);
+            FILE *log_file = fopen("det_rev_analysis.csv", "a");
+            fprintf(log_file, "-1 %f %f %f %f 0 0 %f %f 0 0 %f %f 0 0", average_pore_size*h, (Nx-2)*h, current_poro, rev_x_poro*h, current_perm, rev_x_perm*h, current_tort, rev_x_tort*h);
             fclose(log_file);
 
+            printf("\n\nEnded Deterministic Analysis \n\n");
 }
+
+void REVfunc::StatRevAnalysis(ScaLBL_MRTModel &MRT) {
+    //statistical analysis
+
+    int Nx = MRT.Nx, Ny = MRT.Ny, Nz = MRT.Nz;
+    int stat_size_x = std::min(rev_x_poro,std::min(rev_x_perm,rev_x_tort));
+    int stat_samples = 100; //samples to be used in statistical approach
+    double h = MRT.Dm->voxel_length;
+    std::vector<double> stat_poro(stat_samples);
+    std::vector<double> stat_perm(stat_samples);
+    std::vector<double> stat_tort(stat_samples);
+
+    bool WriteHeader = false;
+    FILE *log_file = fopen("stat_rev_analysis.csv", "r");
+    if (log_file != NULL)
+        fclose(log_file);
+    else
+        WriteHeader = true;
+
+    if (WriteHeader) {
+        log_file = fopen("stat_rev_analysis.csv", "a+");
+        fprintf(
+            log_file, "x_side "
+                        "stat_poro stat_poro_mean stat_poro_max stat_poro_min "
+                        "stat_perm stat_perm_mean stat_perm_max stat_perm_min "
+                        "stat_tort stat_tort_mean stat_tort_max stat_tort_min\n");
+        fclose(log_file);
+    }
+
+    if(stat_size_x != -1)
+    while(stat_size_x > 0 && stat_size_x < Nx-2){
+
+        int sub_y = std::floor((stat_size_x) * (Ny - 2) / (Nx - 2)) + 1;
+        int sub_z = std::floor((stat_size_x) * (Nz - 2) / (Nx - 2)) + 1;
+
+        for (int l = 0; l < stat_samples; l++) {
+            double stat_current_pore_count = 0.0;
+
+            // Calculate the range for the starting positions
+            int range_x = (Nx - 2) - stat_size_x + 1; // +1 to include the last valid start position
+            int range_y = (Ny - 2) - sub_y + 1;
+            int range_z = (Nz - 2) - sub_z + 1;
+
+            // Randomly select start positions within valid ranges
+            int start_x = 1 + rand() % range_x;
+            int start_y = 1 + rand() % range_y;
+            int start_z = 1 + rand() % range_z;
+
+            // Calculate end positions
+            int end_x = start_x + stat_size_x - 1;
+            int end_y = start_y + sub_y - 1;
+            int end_z = start_z + sub_z - 1;
+
+            // To guarantee it is within bounds
+            start_x = std::max(1, start_x);
+            end_x = std::min(Nx-2, end_x);
+            start_y = std::max(1, start_y);
+            end_y = std::min(Ny-2, end_y);
+            start_z = std::max(1, start_z);
+            end_z = std::min(Nz-2, end_z);
+
+            double vax = 0.0;
+            double vay = 0.0;
+            double vaz = 0.0;
+            double count = 0.0;
+            double v_tort = 0.0;
+
+            for (int k = start_z; k <= end_z; k++) {
+                for (int j = start_y; j <= end_y; j++) {
+                    for (int i = start_x; i <= end_x; i++) {
+                        if (MRT.Distance(i, j, k) > 0) {
+                        vax += MRT.Velocity_x(i, j, k);
+                        vay += MRT.Velocity_y(i, j, k);
+                        vaz += MRT.Velocity_z(i, j, k);
+                        v_tort += sqrt(MRT.Velocity_x(i, j, k)*MRT.Velocity_x(i, j, k) + MRT.Velocity_y(i, j, k)*MRT.Velocity_y(i, j, k) + MRT.Velocity_z(i, j, k)*MRT.Velocity_z(i, j, k));
+                        count += 1.0;
+                        }
+                    }
+                }
+            }
+
+
+            if (count == 0)
+            {
+                vax = 0.0;
+                vay = 0.0;
+                vaz = 0.0;
+            } else {
+                vax /= count;
+                vay /= count;
+                vaz /= count;}
+
+
+            double force_mag = sqrt(MRT.Fx * MRT.Fx + MRT.Fy * MRT.Fy + MRT.Fz * MRT.Fz);
+            double dir_x = MRT.Fx / force_mag;
+            double dir_y = MRT.Fy / force_mag;
+            double dir_z = MRT.Fz / force_mag;
+            if (force_mag == 0.0) {
+                // default to z direction
+                dir_x = 0.0;
+                dir_y = 0.0;
+                dir_z = 1.0;
+                force_mag = 1.0;
+        }
+
+            double mu = (MRT.tau - 0.5) / 3.f;
+            double flow_rate = (vax * dir_x + vay * dir_y + vaz * dir_z);
+            double current_poro = count / ((end_x - start_x + 1) * (end_y - start_y + 1) * (end_z - start_z + 1)); //porosity
+            double current_perm = 1013 * h * h * mu * current_poro * flow_rate / force_mag; //permeability
+            double current_tort = 1e100;
+            if (vaz != 0)
+                current_tort = v_tort / (vaz*count) - 1;
+
+            stat_poro[l] = current_poro;
+            stat_perm[l] = current_perm;
+            stat_tort[l] = current_tort;
+        }
+
+        double stat_CC = 10;
+        double stat_min = 1e100;
+        double stat_max = -1e100;
+        double mean = 0.0;
+        double strd_dev = 0.0;
+
+        if(rev_x_poro <= stat_size_x){
+        for (int l = 0; l < stat_samples; l++) {
+        mean += stat_poro[l] / (stat_samples);
+        if (stat_poro[l] > stat_max)
+            stat_max = stat_poro[l];
+        if (stat_poro[l] < stat_min)
+            stat_min = stat_poro[l];
+        }
+
+        for (int l = 0; l < stat_samples; l++)
+            strd_dev += (stat_poro[l] - mean) * (stat_poro[l] - mean);
+
+        strd_dev = sqrt(strd_dev / (stat_samples));
+
+        if(mean != 0)
+        stat_CC = strd_dev / mean;
+        
+    }
+
+    log_file = fopen("stat_rev_analysis.csv", "a");
+    fprintf(log_file, "%f %f %f %f %f ", stat_size_x*h, stat_CC, mean, stat_max, stat_min);
+    fclose(log_file);
+
+    stat_CC = -1.0;
+    stat_min = 1e100;
+    stat_max = -1e100;
+    mean = 0.0;
+    strd_dev = 0.0;
+
+    if(rev_x_perm <= stat_size_x){
+        for (int l = 0; l < stat_samples; l++) {
+        mean += stat_perm[l] / (stat_samples);
+        if (stat_perm[l] > stat_max)
+            stat_max = stat_perm[l];
+        if (stat_perm[l] < stat_min)
+            stat_min = stat_perm[l];
+        }
+
+        for (int l = 0; l < stat_samples; l++)
+            strd_dev += (stat_perm[l] - mean) * (stat_perm[l] - mean);
+
+        strd_dev = sqrt(strd_dev / (stat_samples));
+
+        stat_CC = strd_dev / mean;
+    }
+
+    log_file = fopen("stat_rev_analysis.csv", "a");
+    fprintf(log_file, "%f %f %f %f ", stat_CC, mean, stat_max, stat_min);
+    fclose(log_file);
+
+    stat_CC = -1.0;
+    stat_min = 1e100;
+    stat_max = -1e100;
+    mean = 0.0;
+    strd_dev = 0.0;
+
+    if(rev_x_tort <= stat_size_x){
+        double stat_tort_count = 0;
+
+        for (int l = 0; l < stat_samples; l++)
+        {
+            if (stat_tort[l] != 1e100){
+            mean += stat_tort[l];
+            stat_tort_count++;
+            if (stat_tort[l] > stat_max)
+                stat_max = stat_tort[l];
+            if (stat_tort[l] < stat_min)
+                stat_min = stat_tort[l];
+            }
+        }
+        mean = mean / stat_tort_count;
+
+        for (int l = 0; l < stat_samples; l++)
+            if (stat_tort[l] != 1e100)
+                strd_dev += (stat_tort[l] - mean) * (stat_tort[l] - mean);
+
+        strd_dev = sqrt(strd_dev / (stat_tort_count));
+
+        stat_CC = strd_dev / mean;
+        mean +=1;
+        stat_max +=1;
+        stat_min +=1;
+        }
+
+    log_file = fopen("stat_rev_analysis.csv", "a");
+    fprintf(log_file, "%f %f %f %f\n", stat_CC, mean, stat_max, stat_min);
+    fclose(log_file);
+
+    stat_size_x += average_pore_size;
+    }
+
+    printf("\n \nEnded Statistical Analysis\n\n");
+}
+
