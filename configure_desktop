@@ -1,0 +1,32 @@
+#sudo apt install -y libopenmpi-dev
+#wget "https://objects.githubusercontent.com/github-production-release-asset-2e65be/258591100/0aeabf12-84cb-4a44-bd8c-2df357dbc17a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=releaseassetproduction%2F20250214%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250214T000719Z&X-Amz-Expires=300&X-Amz-Signature=b90fa7ea56ccbf3a6641dcc2b8d9ff2bfb48c71ca33d4a7b37e59084240bbdde&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3Dhdf5-1.14.6.tar.gz&response-content-type=application%2Foctet-stream" -O hdf5-1.14.6.tar.gz
+#tar -xvzf hdf5-1.14.6.tar.gz 
+#cd hdf5-1.14.6
+#./configure --prefix=${HOME}/.local --enable-hl
+#make -j
+#make install
+#cd ..
+#rm hdf5-1.14.6* -rf
+cmake                                    \
+    -S /home/diogo/codes/lbpm \
+    -B /home/diogo/lbpm_cpu \
+    -D CMAKE_CXX_COMPILER:PATH=mpicxx        \
+    -D CMAKE_C_FLAGS="-g "         \
+    -D CMAKE_CXX_FLAGS="-g "      \
+    -D CMAKE_CXX_STANDARD=14	   \
+    -D MPIEXEC=mpirun                     \
+    -D CMAKE_BUILD_TYPE:STRING=Release     \
+    -D HDF5_DIRECTORY=""${HOME}/.local""	 \
+    -D HDF5_LIB="${HOME}/.local/lib/libhdf5.a"	\
+    -D SILO_LIB="${HOME}/.local/lib/libsiloh5.a" \
+    -D SILO_DIRECTORY="${HOME}/.local"	 \
+    -D USE_SILO=1			 \
+    -D USE_CUDA=0                        \
+    -D USE_TIMER=0			 
+
+#    -D USE_TIMER=0                       \
+#     -D USE_NETCDF=0
+#    -D NETCDF_DIRECTORY="/apps/netcdfdd/"        \
+#    -D USE_CUDA=0                        \
+#    -D CUDA_FLAGS="-arch sm_61"          \
+#    -D CUDA_HOST_COMPILER="/usr/bin/gcc" \
