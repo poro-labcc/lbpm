@@ -2,11 +2,22 @@
 #wget "https://objects.githubusercontent.com/github-production-release-asset-2e65be/258591100/0aeabf12-84cb-4a44-bd8c-2df357dbc17a?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=releaseassetproduction%2F20250214%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250214T000719Z&X-Amz-Expires=300&X-Amz-Signature=b90fa7ea56ccbf3a6641dcc2b8d9ff2bfb48c71ca33d4a7b37e59084240bbdde&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3Dhdf5-1.14.6.tar.gz&response-content-type=application%2Foctet-stream" -O hdf5-1.14.6.tar.gz
 #tar -xvzf hdf5-1.14.6.tar.gz 
 #cd hdf5-1.14.6
-#./configure --prefix=${HOME}/.local --enable-hl
+# ./configure --prefix=${HOME}/.local --enable-hl  --without-szlib 
 #make -j
 #make install
 #cd ..
 #rm hdf5-1.14.6* -rf
+#wget https://github.com/LLNL/Silo/releases/download/4.11.1/silo-4.11.1.tar.xz
+#tar -xvf silo-4.11.1.tar.xz 
+#cd silo-4.11.1/
+#./configure --with-hdf5=$HOME/.local/include,$HOME/.local/lib --prefix=$HOME/.local 
+#make -j
+#make install
+#cd ..
+#rm silo-4.11.1 -rf
+
+export LIBDIR="${HOME}/.local"
+
 cmake                                    \
     -S /home/diogo/codes/lbpm \
     -B /home/diogo/lbpm_cpu \
@@ -16,10 +27,10 @@ cmake                                    \
     -D CMAKE_CXX_STANDARD=14	   \
     -D MPIEXEC=mpirun                     \
     -D CMAKE_BUILD_TYPE:STRING=Release     \
-    -D HDF5_DIRECTORY=""${HOME}/.local""	 \
-    -D HDF5_LIB="${HOME}/.local/lib/libhdf5.a"	\
-    -D SILO_LIB="${HOME}/.local/lib/libsiloh5.a" \
-    -D SILO_DIRECTORY="${HOME}/.local"	 \
+    -D HDF5_DIRECTORY=$LIBDIR  \
+    -D HDF5_LIB="${LIBDIR}/lib/libhdf5.a"	\
+    -D SILO_LIB="${LIBDIR}/lib/libsiloh5.a" \
+    -D SILO_DIRECTORY="${LIBDIR}"	 \
     -D USE_SILO=1			 \
     -D USE_CUDA=0                        \
     -D USE_TIMER=0			 
