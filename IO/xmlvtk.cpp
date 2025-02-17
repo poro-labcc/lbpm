@@ -11,13 +11,14 @@
 using namespace std;
 
 bool Element::compress = false;
-headerType cacheSize = 1024*1024;
-static char b64table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+headerType cacheSize = 1500;
 
 unsigned char *spc_base64_encode(unsigned char *input, size_t len)
 {
 	unsigned char *output, *p;
-	size_t        i = 0, mod = len % 3;
+	size_t        i = 0, mod = len % 3, toalloc;
+
+	toalloc = (len / 3) * 4 + (3 - mod) % 3 + 1;
 
 	p = output = (unsigned char *) malloc(((len / 3) + (mod ? 1 : 0)) * 4 + 1);
 	if (!p) return 0;
@@ -149,6 +150,21 @@ void VTIWriter::setCompress()
     this->compress = true;
 }
 
+PVTIWriter::PVTIWriter(const std::string& filename)
+{
+    this -> filename = filename;
+    this -> originX = 0;
+    this -> originY = 0;
+    this -> originZ = 0;
+    this -> wholeMinX = 0;
+    this -> wholeMaxX = 0;
+    this -> wholeMinY = 0;
+    this -> wholeMaxY = 0;
+    this -> wholeMinZ = 0;
+    this -> wholeMaxZ = 0;
+    this -> pieceCounter = 0;
+}
+
 VTIWriter::VTIWriter(const std::string& filename)
 {
     this -> filename = filename;
@@ -220,12 +236,39 @@ std::string VTIWriter::header()
     return stringStream.str();
 }
 
+std::string PVTIWriter::header()
+{
+    std::ostringstream stringStream;
+    stringStream << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << endl;
+    stringStream << "<VTKFile type=\"PImageData\" version=\"1.0\"";
+    stringStream << ">" << endl;
+
+    stringStream << "<PImageData WholeExtent=\"";
+    stringStream << " " << wholeMinX << " " << wholeMaxX;
+    stringStream << " " << wholeMinY << " " << wholeMaxY;
+    stringStream << " " << wholeMinZ << " " << wholeMaxZ;
+    stringStream << "\"";
+    stringStream << " Origin=\""  << this -> originX << " " << this -> originY << " " << this-> originZ << "\"";
+    stringStream << " Spacing=\"" << this-> spaceX << " " << this->spaceY << " " << this->spaceZ << "\">" << endl;
+
+    return stringStream.str();
+}
+
 std::string VTIWriter::footer()
 {
     std::ostringstream stringStream;
 	stringStream << "</VTKFile>" << endl;
     return stringStream.str();
 }
+
+std::string PVTIWriter::footer()
+{
+    std::ostringstream stringStream;
+    stringStream << "</PImageData>" << endl;
+	stringStream << "</VTKFile>" << endl;
+    return stringStream.str();
+}
+
 
 void VTIWriter::setWholeExtent(int64_t minX_,int64_t minY_, int64_t minZ_,int64_t maxX_,int64_t maxY_, int64_t maxZ_)
 {
@@ -244,7 +287,7 @@ std::ostream& operator<<(std::ostream& os, AppendData& obj)
     {
         os << obj.header();
         os << "_";
-        for (std::vector<unsigned char*>::size_type k = 0; k < obj.pointerList.size(); k++)
+        for (int k = 0; k < obj.pointerList.size(); k++)
         {
             if (obj.compress == false)
             {
@@ -266,7 +309,7 @@ std::ostream& operator<<(std::ostream& os, AppendData& obj)
 
 		os.write( (char*) compressedInfo, (3 + numberOfBlocks) *sizeof(headerType) );
 
-                for (u_int64_t n = 1; n <= numberOfBlocks;  n++)
+                for (int n = 1; n <= numberOfBlocks;  n++)
                 {
                     uLongf compressedLength = cacheSize;
                     int numberOfBytesInBlock = (n < numberOfBlocks) ? compressedInfo[1] : compressedInfo[2];
@@ -289,8 +332,8 @@ std::ostream& operator<<(std::ostream& os, AppendData& obj)
                 
                 os.seekp( endPos );
 
-                free( compressedData );
-                free( compressedInfo );
+                delete compressedData;
+                delete compressedInfo;
             }
         }        
         os << endl;
@@ -378,7 +421,7 @@ std::ostream& operator<<(std::ostream& os, DataArray& obj)
             os << base64Data;
             free(base64Data);
 
-            for (u_int64_t n = 1; n <= numberOfBlocks;  n++)
+            for (int n = 1; n <= numberOfBlocks;  n++)
             {
                 uLongf compressedLength = cacheSize;
                 int numberOfBytesInBlock = (n < numberOfBlocks) ? compressedInfo[1] : compressedInfo[2];
@@ -453,6 +496,62 @@ void VTIWriter::setSpacing(double sx_,double sy_, double sz_)
     this -> spaceZ = sz_;
 }
 
+void PVTIWriter::write()
+{
+    std::ofstream file;
+    file.open(this -> filename);
+    file << header();
+    
+    for (int i = 0; i< cellDataName.size(); i++)
+    {
+        if (i==0) file << "<PCellData>" << endl; 
+        file << "<PDataArray Name=\"";
+        file << cellDataName[i];       
+        file << "\" ";
+        file << "NumberOfComponents=\"";
+        file << cellDataComponents[i];
+        file << "\" ";
+        file << "type=\"";
+        file << cellDataType[i];
+        file << "\"";
+        file << " />" << endl;
+        if (i== cellDataName.size()-1) file << "</PCellData>" << endl; 
+    }
+    
+    for (int i = 0; i< pointDataName.size(); i++)
+    {
+        if (i==0) file << "<PPointData>" << endl; 
+        file << "<PDataArray Name=\"";
+        file << pointDataName[i];       
+        file << "\" ";
+        file << "NumberOfComponents=\"";
+        file << pointDataComponents[i];
+        file << "\" ";
+        file << "type=\"";
+        file << pointDataType[i];
+        file << "\"";
+        file << " />" << endl;
+        if (i== pointDataName.size()-1) file << "</PPointData>" << endl; 
+    }
+
+
+    for (int i = 0; i< pieceFilename.size(); i++)
+    {
+        file << "<Piece Extent= \"";
+        file << " " << pieceMinX[i] << " " << pieceMaxX[i];
+        file << " " << pieceMinY[i] << " " << pieceMaxY[i];
+        file << " " << pieceMinZ[i] << " " << pieceMaxZ[i];
+        file << "\" ";
+        file << "Source=\"";
+        file << pieceFilename[i];
+        file << "\" ";
+        file << " />" << endl;
+    }
+
+    file << footer();
+    file.close();
+}
+
 void VTIWriter::write()
 {
     file.open(this -> filename);
@@ -486,4 +585,61 @@ void VTIWriter::write()
     file << ad;
     file << footer();
     file.close();
+}
+
+void PVTIWriter::addVTIWriter(VTIWriter& write)
+{    
+    pieceFilename.push_back( write.filename );
+    
+    pieceMaxX.push_back( write.pieceMaxX );
+    pieceMaxY.push_back( write.pieceMaxY );
+    pieceMaxZ.push_back( write.pieceMaxZ );
+    pieceMinX.push_back( write.pieceMinX );
+    pieceMinY.push_back( write.pieceMinY );
+    pieceMinZ.push_back( write.pieceMinZ );
+    
+    if (pieceFilename.size() == 1)
+    {
+        for (int n = 0; n < write.pd.sizeChild() ; n++)
+        {
+            DataArray* data = (DataArray*) write.pd.getChild(n);
+            pointDataName.push_back( data -> name );
+            pointDataType.push_back( data -> type);
+            pointDataComponents.push_back( data -> components );        
+        }
+
+        for (int n = 0; n < write.cd.sizeChild() ; n++)
+        {
+            DataArray* data = (DataArray*) write.cd.getChild(n);
+            cellDataName.push_back( data -> name );
+            cellDataType.push_back( data -> type);
+            cellDataComponents.push_back( data -> components );        
+        }
+
+        originX = write.originX;
+        originY = write.originX;
+        originZ = write.originX;
+
+        spaceX = write.spaceX;
+        spaceY = write.spaceY;
+        spaceZ = write.spaceZ;
+               
+        wholeMaxX = write.wholeMaxX;
+        wholeMaxY = write.wholeMaxY;
+        wholeMaxZ = write.wholeMaxZ;
+        wholeMinX = write.wholeMinX;
+        wholeMinY = write.wholeMinY;
+        wholeMinZ = write.wholeMinZ;
+    }
+    else
+    {
+        wholeMaxX = max(wholeMaxX,write.wholeMaxX);
+        wholeMaxY = max(wholeMaxY,write.wholeMaxY);
+        wholeMaxZ = max(wholeMaxZ,write.wholeMaxZ);
+        wholeMinX = min(wholeMinX,write.wholeMinX);
+        wholeMinY = min(wholeMinY,write.wholeMinY);
+        wholeMinZ = min(wholeMinZ,write.wholeMinZ);
+    }
+    
+
 }

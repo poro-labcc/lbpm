@@ -15,7 +15,7 @@
 #include <vector>
 
 
-enum class Format { OLD, NEW, SILO, HDF5, UNKNOWN };
+enum class Format { OLD, NEW, SILO, HDF5, UNKNOWN, VTK };
 
 
 /****************************************************
@@ -26,7 +26,9 @@ std::vector<IO::MeshDatabase> writeMeshesSilo(
 void writeSiloSummary( const std::vector<IO::MeshDatabase> &, const std::string & );
 std::vector<IO::MeshDatabase> writeMeshesHDF5(
     const std::vector<IO::MeshDataStruct> &, const std::string &, IO::FileFormat, int, Xdmf & );
-
+std::vector<IO::MeshDatabase> writeMeshesVti( const std::vector<IO::MeshDataStruct> &meshData,
+    const std::string &path, IO::FileFormat format, int rank );
+        
 
 /****************************************************
  * Recursively create the subdirectory               *
@@ -90,6 +92,8 @@ void IO::initialize( const std::string &path, const std::string &format, bool ap
         global_IO_format = Format::SILO;
     else if ( format == "hdf5" )
         global_IO_format = Format::HDF5;
+    else if ( format == "vtk" )
+        global_IO_format = Format::VTK;        
     else
         ERROR( "Unknown format" );
     int rank = Utilities::MPI( MPI_COMM_WORLD ).getRank();
@@ -100,9 +104,14 @@ void IO::initialize( const std::string &path, const std::string &format, bool ap
             filename = global_IO_path + "/summary.LBM";
         else if ( global_IO_format == Format::SILO || global_IO_format == Format::HDF5 )
             filename = global_IO_path + "/LBM.visit";
+        else if ( global_IO_format == Format::VTK)
+            filename = global_IO_path + "/LBM.pvd";
         else
             ERROR( "Unknown format" );
+
         auto fid = fopen( filename.c_str(), "wb" );
+        if ( global_IO_format == Format::VTK)
+            fprintf( fid, "<?xml version=\"1.0\"?>\n<VTKFile type=\"Collection\" version=\"0.1\">\n<Collection>\n" );
         fclose( fid );
     }
 }
@@ -278,13 +287,19 @@ static std::vector<IO::MeshDatabase> writeMeshesNewFormat(
     return meshes_written;
 }
 
-
 /****************************************************
  * Write the mesh data                               *
  ****************************************************/
 void IO::writeData( const std::string &subdir, const std::vector<IO::MeshDataStruct> &meshData,
-    const Utilities::MPI &comm )
-{
+    const Utilities::MPI &comm , int timestep )    
+{      
+    std::string 
+    if (timestep > -1) {
+        char csubdir[100];
+        sprintf( csubdir, "vis%03i", timestep );
+    }
+
+
     if ( global_IO_path.empty() )
         IO::initialize();
     PROFILE_START( "writeData" );
@@ -310,6 +325,9 @@ void IO::writeData( const std::string &subdir, const std::vector<IO::MeshDataStr
     } else if ( global_IO_format == Format::HDF5 ) {
         // Write hdf5
         meshes_written = writeMeshesHDF5( meshData, path, IO::FileFormat::HDF5, rank, xmf );
+    } else if ( global_IO_format == Format::VTK ) {
+        // Write silo
+        meshes_written = writeMeshesVti( meshData, path, IO::FileFormat::SILO, rank );        
     } else {
         ERROR( "Unknown format" );
     }
@@ -345,6 +363,11 @@ void IO::writeData( const std::string &subdir, const std::vector<IO::MeshDataStr
             FILE *fid     = fopen( filename.c_str(), "ab" );
             fprintf( fid, "%s/summary.xmf\n", subdir.c_str() );
             fclose( fid );
+        } else if ( global_IO_format == Format::VTK ) {
+            auto filename = global_IO_path + "/LBM.pvd";
+            FILE *fid     = fopen( filename.c_str(), "ab" );
+            fprintf( fid, "\t<DataSet timestep=\"%d\" part=\"0\" file=\"%s/summary.pvti\"/>\n", timestep, subdir.c_str() );
+            fclose( fid );            
         } else {
             ERROR( "Unknown format" );
         }

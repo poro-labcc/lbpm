@@ -11,6 +11,8 @@
 
 #define headerType u_int64_t
 
+static char b64table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 unsigned char *spc_base64_encode(unsigned char *input, size_t len);
 
 class Element
@@ -57,12 +59,14 @@ class DataArray : public Element
         uint64_t dataSize ;
         uint64_t offset;
         uint64_t points;
-    private:
-        int mode = 0;
         std::string name;
         std::string format;
         std::string type;
         int components;
+    private:
+        int mode = 0;
+
+
 };
 
 class AppendData : public Element
@@ -113,9 +117,42 @@ class VTIWriter : public Element
 
         std::string byteOrder;       /*!< Position of the origin of the image */
         std::ofstream file;
-	CellData cd;
+	    CellData cd;
         PointData pd;
         AppendData ad;
 };
+
+class PVTIWriter : public Element
+{
+        public:
+            PVTIWriter(const std::string& filename);
+            std::string filename;
+            std::string footer();
+            std::string header();
+
+            double spaceX, spaceY, spaceZ;      
+            double originX,originY,originZ;     
+            
+            int pieceCounter;
+
+            int64_t   wholeMinX,  wholeMinY,  wholeMinZ;
+            int64_t   wholeMaxX,  wholeMaxY,  wholeMaxZ;
+
+            std::vector<int64_t> pieceMinX,  pieceMinY,  pieceMinZ;
+            std::vector<int64_t> pieceMaxX,  pieceMaxY,  pieceMaxZ;
+            std::vector<std::string> pieceFilename;
+
+            std::vector<int> cellDataComponents;
+            std::vector<std::string> cellDataName;
+            std::vector<std::string> cellDataType;
+
+            std::vector<int> pointDataComponents;
+            std::vector<std::string> pointDataName;
+            std::vector<std::string> pointDataType;
+
+            void addVTIWriter(VTIWriter& write);
+            void write();
+};
+
 
 #endif
