@@ -61,7 +61,10 @@ void writeVtiSummary(
          for ( const auto &tmp : data.domains ) 
             {  
                 RankInfoStruct info( rank, mesh.nprocx, mesh.nprocy, mesh.nprocz );
-                VTIWriter vti = VTIWriter( tmp.file ); 
+                char filename[100];
+                sprintf( filename, "%05i.vti", rank );
+
+                VTIWriter vti = VTIWriter( filename ); 
                 vti.setWholeExtent( info.ix * mesh.nx, info.jy * mesh.ny , info.kz * mesh.nz, 
                                   ( info.ix + 1 ) * mesh.nx, ( info.jy + 1 ) * mesh.ny, ( info.kz + 1 ) * mesh.nz);    
                 vti.setSpacing( 1.0 , 1.0 , 1.0 );
@@ -123,7 +126,7 @@ std::vector<IO::MeshDatabase> writeMeshesVti( const std::vector<IO::MeshDataStru
     sprintf( fullpath, "%s/%s", path.c_str(), filename );
     for ( size_t i = 0; i < meshData.size(); i++ ) {
         auto mesh = meshData[i].mesh;
-        meshes_written.push_back( write_domain_vti( filename , meshData[i], format, rank ) );
+        meshes_written.push_back( write_domain_vti( fullpath , meshData[i], format, rank ) );
     }
     return meshes_written;
 }
