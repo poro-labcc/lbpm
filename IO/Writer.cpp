@@ -111,7 +111,7 @@ void IO::initialize( const std::string &path, const std::string &format, bool ap
             ERROR( "Unknown format" );
         auto fid = fopen( filename.c_str(), "wb" );
         if ( global_IO_format == Format::VTK)
-            fprintf( fid, "<?xml version=\"1.0\"?>\n<VTKFile type=\"Collection\" version=\"0.1\">\n<Collection>\n" );
+            fprintf( fid, "<?xml version=\"1.0\"?>\n<VTKFile type=\"Collection\" version=\"0.1\">\n  <Collection>\n  </Collection>\n</VTKFile>\n" );
         fclose( fid );
     }
 }
@@ -360,9 +360,30 @@ void IO::writeData( const std::string &subdir, const std::vector<IO::MeshDataStr
             fclose( fid );
         } else if ( global_IO_format == Format::VTK ) {
             auto filename = global_IO_path + "/LBM.pvd";
-            FILE *fid     = fopen( filename.c_str(), "ab" );
-            fprintf( fid, "\t<DataSet timestep=\"%d\" part=\"0\" file=\"%s/summary.pvti\"/>\n", timestep, subdir.c_str() );
-            fclose( fid );            
+
+            FILE *fid     = fopen( filename.c_str(), "r" );
+            fseek(fid, 0, SEEK_END);
+            
+            long filesize = ftell(fid);
+            char *buffer = (char *)malloc(filesize + 1);       
+            rewind(fid);
+            fread(buffer, 1, filesize, fid);
+
+            fclose(fid);
+            //std:cout << "Oi Estou aqui!!!! " << std::endl;
+            char newrow[1024];
+            snprintf(newrow, 1024, "\t<DataSet timestep=\"%d\" part=\"0\" file=\"%s/summary.pvti\"/>\n  </Collection>\n</VTKFile>\n", timestep, subdir.c_str());
+        
+            char *pos = strstr(buffer, "  </Collection>\n</VTKFile>\n");
+            pos[0] = '\0';
+        
+            fid     = fopen( filename.c_str(), "w" );
+            fputs(buffer,fid);
+            fputs(newrow,fid);
+            fclose(fid);
+        
+            free(buffer);
+    
         } else {
             ERROR( "Unknown format" );
         }
