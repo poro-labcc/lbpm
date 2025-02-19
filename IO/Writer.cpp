@@ -28,7 +28,8 @@ std::vector<IO::MeshDatabase> writeMeshesHDF5(
     const std::vector<IO::MeshDataStruct> &, const std::string &, IO::FileFormat, int, Xdmf & );
 std::vector<IO::MeshDatabase> writeMeshesVti( const std::vector<IO::MeshDataStruct> &meshData,
     const std::string &path, IO::FileFormat format, int rank );
-        
+    void writeVtiSummary(
+        const std::vector<IO::MeshDatabase> &meshes_written,const IO::MeshDataStruct &meshData, const std::string &filename );
 
 /****************************************************
  * Recursively create the subdirectory               *
@@ -108,7 +109,6 @@ void IO::initialize( const std::string &path, const std::string &format, bool ap
             filename = global_IO_path + "/LBM.pvd";
         else
             ERROR( "Unknown format" );
-
         auto fid = fopen( filename.c_str(), "wb" );
         if ( global_IO_format == Format::VTK)
             fprintf( fid, "<?xml version=\"1.0\"?>\n<VTKFile type=\"Collection\" version=\"0.1\">\n<Collection>\n" );
@@ -293,13 +293,6 @@ static std::vector<IO::MeshDatabase> writeMeshesNewFormat(
 void IO::writeData( const std::string &subdir, const std::vector<IO::MeshDataStruct> &meshData,
     const Utilities::MPI &comm , int timestep )    
 {      
-    std::string 
-    if (timestep > -1) {
-        char csubdir[100];
-        sprintf( csubdir, "vis%03i", timestep );
-    }
-
-
     if ( global_IO_path.empty() )
         IO::initialize();
     PROFILE_START( "writeData" );
@@ -346,6 +339,8 @@ void IO::writeData( const std::string &subdir, const std::vector<IO::MeshDataStr
             writeSiloSummary( meshes_written, path + "/summary.silo" );
         } else if ( global_IO_format == Format::HDF5 ) {
             xmf.write( path + "/summary.xmf" );
+        } else if  ( global_IO_format == Format::VTK ) {
+            writeVtiSummary( meshes_written, meshData[0], path + "/summary.pvti" );
         }
         // Add the timestep to the global summary file
         if ( global_IO_format == Format::OLD || global_IO_format == Format::NEW ) {
