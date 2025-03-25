@@ -49,7 +49,7 @@ ADD_LBPM_EXECUTABLE( TestNernstPlanck )
 ADD_LBPM_EXECUTABLE( TestPNP_Stokes )
 ADD_LBPM_EXECUTABLE( TestMixedGrad )
 ADD_LBPM_EXECUTABLE( lbpm_rev_permeability_simulator )
-
+ADD_LBPM_EXECUTABLE( ylm )
 
 CONFIGURE_FILE( ${CMAKE_CURRENT_SOURCE_DIR}/cylindertest ${CMAKE_CURRENT_BINARY_DIR}/cylindertest COPYONLY )
 
