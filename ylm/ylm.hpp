@@ -35,7 +35,16 @@ using namespace std;
 #include "meusTipos.hpp"
 #include "dataFileReader.hpp"
 
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include "../common/Array.h"
+#include "../common/Domain.h"
+#include "../analysis/distance.h"
+// #include "../analysis/morphology.h"
 
 // Para matrizes 2D e 3D com Boost
 #include "boost/multi_array.hpp"
@@ -70,7 +79,7 @@ class Young_Laplace_Method{
     void calc( MTci & );
     
     
-  private:
+  public:
   
     //int  _nthreads;             // Número de threads para usar no OpenMP
   
@@ -156,40 +165,69 @@ class Young_Laplace_Method{
   // RECEBE:
   //   config => Nome do arquivo de configurações
   Young_Laplace_Method::Young_Laplace_Method( int argc, char *argv[] ){
-    string saux;
-  
-  
-    // Número de threads para usar no OpenMP
-    // _nthreads = atoi(argv[1]);
-    // if( _nthreads>omp_get_max_threads() )
-    //   aborta("O número máximo de threads nessa máquina é "+ntos(omp_get_max_threads()) );
-  
-  
-    // ---------------------------------------------------------------------------
-    // Lê o Arquivo de Configurações
-    DataFileReader dfr(argv[2]);
+    // string saux;
+
+
+    char LocalRankFilename[40];
+    string filename;
+    double Rcrit_new;
+    filename=argv[1];
+    Rcrit_new=0.f; 
+    NULL_USE( Rcrit_new );
+    // read the input database 
+		auto db = std::make_shared<Database>( filename );
+		auto domain_db = db->getDatabase( "Domain" );
+    auto ylm_db = db->getDatabase( "YLM" );
+
+    auto size = domain_db->getVector<int>( "N" );
+    _nx = size[0];
+    _ny = size[1];
+    _nz = size[2];
+
+    auto VoxelLabels = domain_db->getVector<int>( "VoxelLabels" );
+    _S = VoxelLabels[0];
+    _O = VoxelLabels[1];
+    _I = VoxelLabels[2];
+    _P = VoxelLabels[3];
+
+    auto READFILE = domain_db->getScalar<std::string>( "Filename" );
+    MTcs mmfile(READFILE);
+
+    _outImgRoot = ylm_db->getScalar<std::string>( "ImageRoot" );
+    _outImgDir = ylm_db->getScalar<std::string>( "ImageDir" );
+    _whichImg = ylm_db->getScalar<std::string>( "WhichImage" );
+    string memb = ylm_db->getScalar<std::string>( "Membrane" );
+    MTcs has_membrane(memb);
+    _wall = ylm_db->getScalar<bool>( "Walls" );
+    _wet = ylm_db->getScalar<bool>( "Wetting" );
+    _compressible = ylm_db->getScalar<bool>( "Compressible" );
+
+
+    auto direction = ylm_db->getVector<int>( "Direction" );
+    _iX=false; _iY=false; _iZ=false;
+    _iM = false; _iP = false;
+    if(direction[0] != 0 && direction[1] == 0 && direction[2] ==0 ){_iX=true;if(direction[0] > 0){_iP = true;}else {_iM = true;}}
+    else if(direction[1] != 0 && direction[0] == 0 && direction[2] ==0 ){_iY=true;if(direction[1] > 0){_iP = true;}else {_iM = true;}}
+    else if(direction[2] != 0 && direction[0] == 0 && direction[1] ==0 ){_iZ=true;if(direction[2] > 0){_iP = true;}else {_iM = true;}}
+    else {aborta("Unkonwn direction.");}
     
-    ++dfr;  dfr>>saux;  MTcs mmfile( saux );     // Imagem com micromodelo
+    auto diameters = ylm_db->getVector<int>( "Diameters" );
+    for (int dd = diameters[0]; dd <= diameters[1]; dd+= diameters[2]){
+      _d.push_back(dd);
+    }
+       // Ordena
+       sort( _d.begin(), _d.end() );
     
-    ++dfr;  dfr >> _nx >> _ny >> _nz;            // Dimensões da imagem
-    
-    ++dfr;  dfr>>_outImgRoot;                    // Raiz arqs com img de invasão
-    ++dfr;  dfr>>_outImgDir;                     // Diretório para colocar imgs
-    
-    ++dfr;  dfr>>_whichImg;
-    
-    
-    ++dfr;  dfr>>saux;                           // Membrana
-    MTcs has_membrane(saux);
-  
-    ++dfr;  dfr>>saux;                           // Paredes?
-    _wall = false;
-    if( saux=="yes" ) _wall = true;
-  
-  
-    ++dfr;   dfr >> _wet;           // Molhante?
-    ++dfr;   dfr >> _compressible;  // Compressível?
-    _compressible = !_compressible;
+       // Tira repetidos
+       MTvi::iterator it = unique( _d.begin(), _d.end() );
+       _d.resize( distance( _d.begin(),it ) );
+     
+       // Aborta se não sobrou nada
+       if( _d.size()==0 )
+       aborta("It was impossible to create diameters array.");
+     
+       // Se for não-molhante, reverte ordem do vetor
+       if( !_wet )  reverse( _d.begin(), _d.end() );
     
   
     // Cria diretório para guardar imagens e arquivo de dados e de tempo
@@ -197,94 +235,14 @@ class Young_Laplace_Method{
     mymkdir( _outImgDir );
   
     
-    // Direção e sentido da invasão
-    ++dfr;   dfr >> saux;
-    _iX=false; _iY=false; _iZ=false;
-    
-    if     ( saux.compare(0,1,"x")==0 ){ _iX=true; }
-    else if( saux.compare(0,1,"y")==0 ){ _iY=true; }
-    else if( saux.compare(0,1,"z")==0 ){ _iZ=true; }
-    else{ aborta( "Direção desconhecida de invasão: " + saux ); }
-  
-    _iP=false; _iM=false;
-    if     ( saux.compare(1,1,"+")==0 ){ _iP=true; }
-    else if( saux.compare(1,1,"-")==0 ){ _iM=true; }
-    else{ aborta( "Sentido desconhecido de invasão: " + saux ); }
-    
-      
-    
-    // ---------------------------------------------------------------------------
-    // Números que representam o micromodelo e os fluidos
-    ++dfr;  dfr >> _S;
-    ++dfr;  dfr >> _P;
-    ++dfr;  dfr >> _I;
-    ++dfr;  dfr >> _O;
-    // ---------------------------------------------------------------------------
-  
-  
-  
-    // ---------------------------------------------------------------------------
-    // Diâmetros.
-    // Pode conter várias linhas com:
-    //   dmin dmax dstep
-    // onde:
-    //   dmin  => Menor diâmetro
-    //   dmax  => Maior diâmetro
-    //   dstep => Passo em diâmetro
-    //
-    // Começo sempre com dmin e vou até dmax, se o passo permitir, senão acaba antes.
-    // Exemplo:
-    //   1 7 2 ->  1,3,5,7
-    //   1 4 2 ->  1,3
-    //
-    // Não tem problema se houver repetição de valor nas linhas, no final ordeno tudo
-    // e tiro valores repetidos.
-    //
-    // Assim, os diâmetros não precisam estar distruídos uniformemente
-    // Se for um fluido não-molhante, começa do menor diâmetro para o maior
-    // Se for um fluido molhante, vai do maior diâmetro para o menor
-    //
-    // Mas os diâmetros PRECISAM SER NÚMEROS ÍMPARES
-    // Quando calculo um valor par, diminuo 1 unidade.  
-    
-    // Lê todas as linhas colocando os diâmetros no vetor
-    int dmin, dmax, dstep;
-    while( !++dfr ){
-      dfr >> dmin >> dmax >> dstep;
-      for( int dd=dmin; dd<=dmax; dd+=dstep ){
-        //if( dd%2==0 ) _d.push_back(dd-1); aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-        if( dd%2==0 ) _d.push_back(dd);
-        else          _d.push_back(dd);
-      }
-    }
-    dfr.close();     
-  
-    
-    // Ordena
-    sort( _d.begin(), _d.end() );
-    
-    // Tira repetidos
-    MTvi::iterator it = unique( _d.begin(), _d.end() );
-    _d.resize( distance( _d.begin(),it ) );
-  
-    // Aborta se não sobrou nada
-    if( _d.size()==0 )
-    aborta("Não foi possível calcular nenhum diâmetro. São ímpares?");
-  
-    // Se for não-molhante, reverte ordem do vetor
-    if( !_wet )  reverse( _d.begin(), _d.end() );
-    // ---------------------------------------------------------------------------
-  
-    
-  
-  
-    // ---------------------------------------------------------------------------
-    // Lê a imagem
-    //   Coloco duas linhas a mais. Uma em cima para representar o reservatório de
-    // entrada de fluido e outra embaixo para o reservatório de fluido expulso.
-    //   Todo o algoritmo segue normalmente com a imagem aumentada. Na hora de
-    // gravar a imagem, retiro as duas linhas extras.
-    // ---------------------------------------------------------------------------
+   
+    // // ---------------------------------------------------------------------------
+    // // Lê a imagem
+    // //   Coloco duas linhas a mais. Uma em cima para representar o reservatório de
+    // // entrada de fluido e outra embaixo para o reservatório de fluido expulso.
+    // //   Todo o algoritmo segue normalmente com a imagem aumentada. Na hora de
+    // // gravar a imagem, retiro as duas linhas extras.
+    // // ---------------------------------------------------------------------------
     double tt_read = _ttime(); // Tempo de leitura dos dados
   
   
@@ -588,7 +546,7 @@ class Young_Laplace_Method{
   
     // Cria arquivo de saída
     // Deixo que o destrutor implícito feche o arquivo
-    saux = _outImgDir + "/" + _outImgRoot + ".dat";
+    string saux = _outImgDir + "/" + _outImgRoot + ".dat";
     _dat.open( saux.c_str() );
     abriu( _dat, saux );
     outputFileHead( argc, argv, _dat, vec, cmt );  

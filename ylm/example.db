@@ -1,0 +1,17 @@
+Domain {
+   Filename = "example.raw"
+   N = 100, 100, 100            // domain size
+   VoxelLabels = 0, 1, 2, 3  // solid, expelled, injected, pore 
+}
+
+YLM {
+   Diameters = 1, 50, 1      //start, end, step
+   ImageRoot = "d0"          // name files
+   ImageDir = "d0"           // folder in which data is saved
+   WhichImage = "all"        // all, last, none
+   Membrane = "none"         // begin,end,none
+   Direction = 0, 0, 1       // axis of intrusion (accepts negative values)
+   Walls = false    
+   Compressible = true
+   Wetting = false
+}
