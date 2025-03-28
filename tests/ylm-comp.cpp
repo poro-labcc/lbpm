@@ -19,7 +19,7 @@ using namespace std;
 #include "../ylm/aborta.hpp"
 #include "../ylm/numeros.hpp"
 #include "../ylm/meusTipos.hpp"
-#include "../ylm/ylm.hpp"
+#include "../ylm/ylm-comp.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -168,7 +168,71 @@ void membrane( matrix &m, MTci &S, MTci &fill, MTci &p, MTcs &a ){
 
 
 
+void surround( matrix &m, MTci &I){
+  MTci nx = m.shape()[0];
+  MTci ny = m.shape()[1];
+  MTci nz = m.shape()[2];
+  
 
+    for( int x=0; x<nx; x++ ){
+      
+      if( nz>1 ){  // Esses ifs são necessários para o caso de só haver um
+                   // plano nessa direção (caso 2D), não colocar paredes nesse
+                   // plano, senão eu tamparia a imagem toda.
+        for( int y=0; y<ny; y++ ){
+          m[x][y][   0] = I;
+          m[x][y][nz-1] = I;
+        }
+      }
+
+      if( ny>1 ){
+        for( int z=0; z<nz; z++ ){
+          m[x][   0][z] = I;
+          m[x][ny-1][z] = I;
+        }
+      }
+    }
+    
+    
+
+    for( int y=0; y<ny; y++ ){
+      
+      if( nz>1 ){
+        for( int x=0; x<nx; x++ ){
+          m[x][y][   0] = I;
+          m[x][y][nz-1] = I;
+        }
+      }
+  
+      if( nx>1 ){
+        for( int z=0; z<nz; z++ ){
+          m[   0][y][z] = I;
+          m[nx-1][y][z] = I;
+        }
+      }
+    }
+
+
+    for( int z=0; z<nz; z++ ){
+      
+      if( ny>1 ){
+        for( int x=0; x<nx; x++ ){
+          m[x][   0][z] = I;
+          m[x][ny-1][z] = I;
+        }
+      }
+  
+      if( nx>1 ){
+        for( int y=0; y<ny; y++ ){
+          m[   0][y][z] = I;
+          m[nx-1][y][z] = I;
+        }
+      }
+    
+
+  }
+    
+}
 
 
 

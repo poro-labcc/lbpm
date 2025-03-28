@@ -196,11 +196,11 @@ class Young_Laplace_Method{
     _outImgRoot = ylm_db->getScalar<std::string>( "ImageRoot" );
     _outImgDir = ylm_db->getScalar<std::string>( "ImageDir" );
     _whichImg = ylm_db->getScalar<std::string>( "WhichImage" );
-    string memb = ylm_db->getScalar<std::string>( "Membrane" );
+    string memb = "none";
     MTcs has_membrane(memb);
-    _wall = ylm_db->getScalar<bool>( "Walls" );
+    _wall = false;
     _wet = ylm_db->getScalar<bool>( "Wetting" );
-    _compressible = ylm_db->getScalar<bool>( "Compressible" );
+    _compressible = false;
 
 
     auto direction = ylm_db->getVector<int>( "Direction" );
@@ -252,6 +252,8 @@ class Young_Laplace_Method{
     dimx = _nx; dimy = _ny; dimz = _nz; //ADICIONADO AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
   
   
+
+    if(!_compressible){
     // ---------------------------------------------------------------------------
     // Inicio as variáveis para os reservatórios
     // Coloco dois planos a mais, para conter os dois reservatórios
@@ -259,7 +261,7 @@ class Young_Laplace_Method{
     else if( _iY ){ _ny += 2;   y0++;   yM = _ny-1; }
     else if( _iZ ){ _nz += 2;   z0++;   zM = _nz-1; }
     // ---------------------------------------------------------------------------
-  
+    }
   
     // ---------------------------------------------------------------------------
     // Membrana
@@ -332,7 +334,12 @@ class Young_Laplace_Method{
     }
     // ---------------------------------------------------------------------------
   
-  
+
+    if(_compressible) {
+      if( _nx>1 ){ _nx+=2;  x0++;  xM++; }
+      if( _ny>1 ){ _ny+=2;  y0++;  yM++; }
+      if( _nz>1 ){ _nz+=2;  z0++;  zM++; }
+    }
   
   
     // ---------------------------------------------------------------------------
@@ -379,7 +386,8 @@ class Young_Laplace_Method{
     _rtable.resize( max_eq );
     // ---------------------------------------------------------------------------
    
-  
+  if(_compressible) surround(_mm, _I);
+  cout << _nx << _ny << _nz << endl;
   
   
     // ---------------------------------------------------------------------------
@@ -392,6 +400,7 @@ class Young_Laplace_Method{
       else if( _iY ){ membrane( _mm, _S, fill, _memb, "y" ); }
       else if( _iZ ){ membrane( _mm, _S, fill, _memb, "z" ); }    
     }
+
     if( _wall ){
       if     ( _iX ){ walls( _mm, _S, "x" ); }
       else if( _iY ){ walls( _mm, _S, "y" ); }
@@ -408,7 +417,7 @@ class Young_Laplace_Method{
     // Inicializa o Micromodelo
     
     // Coloca dois planos com Reservatórios
-    
+    if(!_compressible){
     // Invasão em x
     if( _iX ){
       for( int z=0; z<_nz; z++ ){
@@ -442,7 +451,10 @@ class Young_Laplace_Method{
         _mm[x][y][_chamber_o] = _O;
       }}
       
-    }  
+    } }
+      
+
+    
   
     //cout << "_nz = " << _nz << "; " << "z = " << z0 << " " << zM << endl;
     //cout << "_ny = " << _ny << "; " << "y = " << y0 << " " << yM << endl;
@@ -489,11 +501,14 @@ class Young_Laplace_Method{
       _mmorig[x][y][z] = iaux;
     }}}  
   
-  
+    if(!_compressible){
     // Desconta o tamanho dos reservatórios ...
     if     ( _iX ){ _NP -= 2*_ny*_nz;  }
     else if( _iY ){ _NP -= 2*_nx*_nz;  }
-    else if( _iZ ){ _NP -= 2*_nx*_ny;  }
+    else if( _iZ ){ _NP -= 2*_nx*_ny;  } }
+    else{
+      _NP = _NP - 2*(_nx*_ny+_nx*_nz+_ny*_nz) + (4*(_nx+_ny+_nz) - 8);
+    }
   
   
   
@@ -525,24 +540,24 @@ class Young_Laplace_Method{
     vec[4] = "Number of pixels occupied by outlet fluid.";
     vec[5] = "Number of pixels occupied by outlet fluid  / Number of porous pixels";
     
-    if(!_compressible) {
+    if(true) {
   
       cmt[0] = "Image width  (x) (px)     : " + ntos( dimx );
       cmt[1] = "Image height (y) (px)     : " + ntos( dimy );
       cmt[2] = "Image planes (z) (px)     : " + ntos( dimz );
       cmt[3] = "Number of porous pixels   : " + ntos( _NP  ); }
   
-    else {
+    // else {
   
-      int camadas = 2*(dimx*dimy+dimx*dimz+dimy*dimz) - (4*(dimx+dimy+dimz) - 8);
-      int N_NP = _NP - camadas;
+    //   int camadas = 2*(dimx*dimy+dimx*dimz+dimy*dimz) - (4*(dimx+dimy+dimz) - 8);
+    //   int N_NP = _NP - camadas;
   
-      cmt[0] = "Image width  (x) (px)     : " + ntos( dimx - 2) + "       (disconsidering surrounding layers)";
-      cmt[1] = "Image height (y) (px)     : " + ntos( dimy - 2) + "       (disconsidering surrounding layers)";
-      cmt[2] = "Image planes (z) (px)     : " + ntos( dimz - 2) + "       (disconsidering surrounding layers)";
-      cmt[3] = "Number of porous pixels   : " + ntos(   N_NP  ) + "       (disconsidering surrounding layers)";
+    //   cmt[0] = "Image width  (x) (px)     : " + ntos( dimx - 2) + "       (disconsidering surrounding layers)";
+    //   cmt[1] = "Image height (y) (px)     : " + ntos( dimy - 2) + "       (disconsidering surrounding layers)";
+    //   cmt[2] = "Image planes (z) (px)     : " + ntos( dimz - 2) + "       (disconsidering surrounding layers)";
+    //   cmt[3] = "Number of porous pixels   : " + ntos(   N_NP  ) + "       (disconsidering surrounding layers)";
   
-    }
+    // }
   
     // Cria arquivo de saída
     // Deixo que o destrutor implícito feche o arquivo
@@ -1153,7 +1168,10 @@ class Young_Laplace_Method{
     
     double tt_end = _ttime();
   
-    
+  
+    //AQUI SALVA OS ARQUIVOS (TIRAR RESERVATÓRIOS)
+
+
     uint8_t aux_raw;
     FILE *FRAW;
     if( createRAW ){
@@ -1179,16 +1197,19 @@ class Young_Laplace_Method{
     // reservatórios
     x0=0  , y0=0  , z0=0;
     xM=_nx, yM=_ny, zM=_nz;
+
+    if(!_compressible){
     if     ( _iX ){ x0=1; xM = _nx-1; }
     else if( _iY ){ y0=1; yM = _ny-1; }
-    else if( _iZ ){ z0=1; zM = _nz-1; }  
+    else if( _iZ ){ z0=1; zM = _nz-1; } }
+    else{ x0=1; xM = _nx-1; y0=1; yM = _ny-1; z0=1; zM = _nz-1;}
     
   
     //aux_raw = static_cast<uint8_t>(iaux);
     //fwrite(&aux_raw, sizeof(uint8_t), 1, outfile);
   
     
-    int Ninlet=0, Noutlet=0;
+    int Ninlet=0, Noutlet=0, Nporo=0;
     for( int z=z0; z<zM; z++ ){
     for( int y=y0; y<yM; y++ ){
     for( int x=x0; x<xM; x++ ){    
@@ -1196,6 +1217,8 @@ class Young_Laplace_Method{
       iaux = _mm[x][y][z];
       if     ( iaux==_I ) Ninlet++;
       else if( iaux==_O ) Noutlet++;
+
+      if(iaux != _S ) Nporo++;
       
       if( createRAW ){
         aux_raw = static_cast<uint8_t>(iaux);
@@ -1206,24 +1229,22 @@ class Young_Laplace_Method{
     }
     if( createRAW ) fclose(FRAW); 
     tt_end = _ttime() - tt_end;
-  
-  
-  
+    
     //LEMBRETE: TRATAR CASO COMPRESSIVEL E INCOMPRESSIVEL (CAMADAS)
   
   
     //Modificação feita por: Thomas Carmo
-    int camadas = 2*(dimx*dimy+dimx*dimz+dimy*dimz) - (4*(dimx+dimy+dimz) - 8); //ADICIONADO AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    int N_NP = _NP - camadas;
+    // int camadas = 2*(dimx*dimy+dimx*dimz+dimy*dimz) - (4*(dimx+dimy+dimz) - 8); //ADICIONADO AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    // int N_NP = _NP - camadas;
   
     // Salva contagens
   
-    if(!_compressible){
-    _dat << setprecision(6) << step << " " << D << " " << Ninlet << " " << Ninlet/(1.0*_NP) << " " << Noutlet << " " << Noutlet/(1.0*_NP) << endl;
+    // if(!_compressible){
+    if(true){
+    _dat << setprecision(6) << step << " " << D << " " << Ninlet << " " << Ninlet/(1.0*Nporo) << " " << Noutlet << " " << Noutlet/(1.0*Nporo) << endl;
     }else{
-  
-  
-    _dat << setprecision(6) << step << " " << D << " " << Ninlet-camadas << " " << (Ninlet-camadas)/((1.0*N_NP)) << " " << Noutlet << " " << Noutlet/((1.0*N_NP)) << endl;
+   
+    // _dat << setprecision(6) << step << " " << D << " " << Ninlet-camadas << " " << (Ninlet-camadas)/((1.0*N_NP)) << " " << Noutlet << " " << Noutlet/((1.0*N_NP)) << endl;
     }
     // Salva tempos
     tt_step = _ttime() - tt_step;  
