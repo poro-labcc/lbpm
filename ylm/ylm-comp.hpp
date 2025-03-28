@@ -98,6 +98,7 @@ class Young_Laplace_Method{
     bool _iX, _iY, _iZ;         // Direção da invasão: x, y ou z
     bool _iP, _iM;              // Sentido da invasão: + ou -
     int _chamber_i, _chamber_o; // Onde estão os reservatórios?
+    bool _all_faces;              //deseja fazer a intrusão por todas as faces?
     
     
     int _memb;                  // Coloca membrana?
@@ -200,10 +201,21 @@ class Young_Laplace_Method{
     MTcs has_membrane(memb);
     _wall = false;
     _wet = ylm_db->getScalar<bool>( "Wetting" );
+    _all_faces = ylm_db->getScalar<bool>( "Surround" );
     _compressible = true;
 
-    _iX=true; _iY=false; _iZ=false;
-    _iM = false; _iP = true;
+    if(!_all_faces){
+    auto direction = ylm_db->getVector<int>( "Direction" );
+    _iX=false; _iY=false; _iZ=false;
+    _iM = false; _iP = false;
+    if(direction[0] != 0 && direction[1] == 0 && direction[2] ==0 ){_iX=true;if(direction[0] > 0){_iP = true;}else {_iM = true;}}
+    else if(direction[1] != 0 && direction[0] == 0 && direction[2] ==0 ){_iY=true;if(direction[1] > 0){_iP = true;}else {_iM = true;}}
+    else if(direction[2] != 0 && direction[0] == 0 && direction[1] ==0 ){_iZ=true;if(direction[2] > 0){_iP = true;}else {_iM = true;}}
+    else {aborta("Unkonwn direction.");}
+    } else{ cout << "Surround selected. Direction is disconsidered. " << endl;
+
+    _iX=false; _iY=false; _iZ=true;
+    _iM = false; _iP = true;}
     
     auto diameters = ylm_db->getVector<int>( "Diameters" );
     for (int dd = diameters[0]; dd <= diameters[1]; dd+= diameters[2]){
@@ -247,7 +259,7 @@ class Young_Laplace_Method{
   
   
 
-    if(!_compressible){
+    if(!_all_faces){
     // ---------------------------------------------------------------------------
     // Inicio as variáveis para os reservatórios
     // Coloco dois planos a mais, para conter os dois reservatórios
@@ -378,7 +390,7 @@ class Young_Laplace_Method{
     _rtable.resize( max_eq );
     // ---------------------------------------------------------------------------
    
-  if(_compressible) surround(_mm, _I);
+  if(_all_faces) surround(_mm, _I);
   cout << _nx << _ny << _nz << endl;
   
   
@@ -409,7 +421,7 @@ class Young_Laplace_Method{
     // Inicializa o Micromodelo
     
     // Coloca dois planos com Reservatórios
-    if(!_compressible){
+    if(!_all_faces){
     // Invasão em x
     if( _iX ){
       for( int z=0; z<_nz; z++ ){
@@ -493,7 +505,7 @@ class Young_Laplace_Method{
       _mmorig[x][y][z] = iaux;
     }}}  
   
-    if(!_compressible){
+    if(!_all_faces){
     // Desconta o tamanho dos reservatórios ...
     if     ( _iX ){ _NP -= 2*_ny*_nz;  }
     else if( _iY ){ _NP -= 2*_nx*_nz;  }
@@ -1009,7 +1021,7 @@ class Young_Laplace_Method{
     int xM=_nx, yM=_ny, zM=_nz;
 
 
-    if(!_compressible){
+    if(!_all_faces){
     if( _iX ){
       // #pragma omp parallel for num_threads (_nthreads)
       for( int y=0; y<_ny; y++ ){
@@ -1193,7 +1205,7 @@ class Young_Laplace_Method{
     x0=0  , y0=0  , z0=0;
     xM=_nx, yM=_ny, zM=_nz;
 
-    if(!_compressible){
+    if(!_all_faces){
     if     ( _iX ){ x0=1; xM = _nx-1; }
     else if( _iY ){ y0=1; yM = _ny-1; }
     else if( _iZ ){ z0=1; zM = _nz-1; } }

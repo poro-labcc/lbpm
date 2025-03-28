@@ -10,6 +10,7 @@ YLM {
    ImageDir = "d0"              // folder in which data is saved
    WhichImage = "all"           // all, last, none
    Direction = 0, 0, 1          // axis of intrusion (accepts negative values)
+   Surround = true              //for the compressible case. Surrounds the sample with injected fluid.
    Compressible = true
    Wetting = false
 }
