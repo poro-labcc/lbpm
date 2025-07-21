@@ -263,7 +263,7 @@ void ScaLBL_MRTModel::Run() {
 
         if (WriteHeader) {
             log_file = fopen("Permeability.csv", "a+");
-            fprintf(log_file, "time Fx Fy Fz mu Vs As Js Xs vx vy vz absperm\n");
+            fprintf(log_file, "time Fx Fy Fz mu Vs As Js Xs vx vy vz absperm absperm_adjusted\n");
             fclose(log_file);
         }
     }
@@ -392,7 +392,7 @@ void ScaLBL_MRTModel::Run() {
 
             double h = Dm->voxel_length;
             double absperm =
-                h * h * mu * Mask->Porosity() * flow_rate / force_mag;
+                h * h * mu * Mask->Porosity() * Mask->Porosity() * flow_rate / force_mag;
 	    absperm *= 1013.0; // Convert to mDarcy
 
             if (rank == 0) {

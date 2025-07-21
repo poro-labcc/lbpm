@@ -203,7 +203,7 @@ public: // Public variables (need to create accessors instead)
      * \brief Read domain IDs from file
     */
     void ReadIDs();
-
+    
     /** 
      * \brief Read domain IDs from SWC file
     */

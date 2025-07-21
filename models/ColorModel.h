@@ -137,7 +137,7 @@ public:
     std::shared_ptr<Database> vis_db;
 
     IntArray Map;
-    signed char *id;
+    signed char *id, *IDSolid;
     int *NeighborList;
     int *dvcMap;
     double *fq, *Aq, *Bq;
@@ -145,6 +145,8 @@ public:
     double *ColorGrad;
     double *Velocity;
     double *Pressure;
+    bool *Interfacemap;
+    bool *NsVector;
 
     /**
     * \brief Assign wetting affinity values 
