@@ -1249,7 +1249,7 @@ __global__  void dvc_ScaLBL_CopySlice_z(double *Phi, int Nx, int Ny, int Nz, int
 	}
 }
 
-__global__ void ScaLBL_IDSolid_Init(double *Phi, signed char *IDSolid,
+__global__ void dvc_ScaLBL_IDSolid_Init(double *Phi, signed char *IDSolid,
                                        int start, int finish) {
     int n;
     double phi;
@@ -4168,6 +4168,9 @@ extern "C" void ScaLBL_CopySlice_z(double *Phi, int Nx, int Ny, int Nz, int Sour
 
 
 extern "C" void ScaLBL_IDSolid_Init(double *Phi, signed char *IDSolid, int start, int finish){
-	int GRID = Nx*Ny / 512 + 1;
-	dvc_ScaLBL_IDSolid_Init<<<GRID,512>>>(Phi,IDSolid, start, finish);
+	dvc_ScaLBL_IDSolid_Init<<<NBLOCKS,NTHREADS>>>(Phi,IDSolid, start, finish);
+	cudaError_t err = cudaGetLastError();
+	if (cudaSuccess != err){
+		printf("CUDA error in ScaLBL_IDSolid_Init: %s \n",cudaGetErrorString(err));
+	}
 }
