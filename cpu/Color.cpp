@@ -1549,6 +1549,8 @@ extern "C" void ScaLBL_D3Q19_AAeven_Color(
         ny = ny / ColorMag;
         nz = nz / ColorMag;
 
+        // Add correction here
+
         // q=0
         fq = dist[n];
         rho = fq;
@@ -2163,6 +2165,8 @@ extern "C" void ScaLBL_D3Q19_AAodd_Color(
         nx = nx / ColorMag;
         ny = ny / ColorMag;
         nz = nz / ColorMag;
+
+        // Add correction here
 
         // q=0
         fq = dist[n];
