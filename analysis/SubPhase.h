@@ -1,4 +1,20 @@
 /*
+  Copyright 2013--2018 James E. McClure, Virginia Polytechnic & State University
+  Copyright Equnior ASA
+
+  This file is part of the Open Porous Media project (OPM).
+  OPM is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  OPM is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with OPM.  If not, see <http://www.gnu.org/licenses/>.
+*/
+/*
  * Sub-phase averaging tools
  */
 
@@ -23,13 +39,11 @@ public:
     double p;
     double M, Px, Py, Pz, K, visc;
     double V, A, H, X;
-    double Vout; //Edited:Ricardo
     void reset() {
         p = M = Px = Py = Pz = K = 0.0;
         visc = 0.0;
         V = A = H = X = 0.0;
         Nc = 1;
-        Vout= 0.0; //Edited:Ricardo
     }
 
 private:
@@ -110,7 +124,7 @@ public:
     void SetParams(double rhoA, double rhoB, double tauA, double tauB,
                    double force_x, double force_y, double force_z, double alpha,
                    double beta);
-    void Basic(int timestep);
+    void Basic();
     void Full();
     void Write(int time);
     void AggregateLabels(const std::string &filename);

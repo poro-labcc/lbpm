@@ -1429,7 +1429,7 @@ extern "C" void ScaLBL_SetSlice_z(double *Phi, double value, int Nx, int Ny,
 //		double *ColorGrad, double rhoA, double rhoB, double tauA, double tauB, double alpha, double beta,
 //		double Fx, double Fy, double Fz, int start, int finish, int Np){
 extern "C" void ScaLBL_D3Q19_AAeven_Color(
-    int *Map, double *dist, double *Aq, double *Bq, double *Den, double *Phi, signed char *IDSolid, bool *Interfacemap, double *ColorGrad,
+    int *Map, double *dist, double *Aq, double *Bq, double *Den, double *Phi, signed char *IDSolid,
     double *Vel, double rhoA, double rhoB, double tauA, double tauB,
     double alpha, double beta, double Fx, double Fy, double Fz, int strideY,
     int strideZ, int start, int finish, int Np) {
@@ -1440,13 +1440,10 @@ extern "C" void ScaLBL_D3Q19_AAeven_Color(
     double rho, jx, jy, jz;
     // non-conserved moments
     double m1, m2, m4, m6, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18;
-    signed char id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, id13, id14, id15, id16, id17, id18;
     double m3, m5, m7;
     double nA, nB; // number density
     double a1, b1, a2, b2, nAB, delta;
     double C, nx, ny, nz; //color gradient magnitude and direction
-    double nsx, nsy, nsz; // Rock Fluid interface normal vector
-    double npx, npy, npz; // contact angle vector 
     double ux, uy, uz;
     double phi, tau, rho0, rlx_setA, rlx_setB;
 
@@ -1487,101 +1484,61 @@ extern "C" void ScaLBL_D3Q19_AAeven_Color(
         //........................................................................
         nn = ijk - 1; // neighbor index (get convention)
         m1 = Phi[nn]; // get neighbor for phi - 1
-        id1 = IDSolid[nn];
         //........................................................................
         nn = ijk + 1; // neighbor index (get convention)
         m2 = Phi[nn]; // get neighbor for phi - 2
-        id2 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideY; // neighbor index (get convention)
         m3 = Phi[nn];       // get neighbor for phi - 3
-        id3 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideY; // neighbor index (get convention)
         m4 = Phi[nn];       // get neighbor for phi - 4
-        id4 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ; // neighbor index (get convention)
         m5 = Phi[nn];       // get neighbor for phi - 5
-        id5 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ; // neighbor index (get convention)
         m6 = Phi[nn];       // get neighbor for phi - 6
-        id6 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideY - 1; // neighbor index (get convention)
         m7 = Phi[nn];           // get neighbor for phi - 7
-        id7 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideY + 1; // neighbor index (get convention)
         m8 = Phi[nn];           // get neighbor for phi - 8
-        id8 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideY - 1; // neighbor index (get convention)
         m9 = Phi[nn];           // get neighbor for phi - 9
-        id9 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideY + 1; // neighbor index (get convention)
         m10 = Phi[nn];          // get neighbor for phi - 10
-        id10 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ - 1; // neighbor index (get convention)
         m11 = Phi[nn];          // get neighbor for phi - 11
-        id11 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ + 1; // neighbor index (get convention)
         m12 = Phi[nn];          // get neighbor for phi - 12
-        id12 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ - 1; // neighbor index (get convention)
         m13 = Phi[nn];          // get neighbor for phi - 13
-        id13 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ + 1; // neighbor index (get convention)
         m14 = Phi[nn];          // get neighbor for phi - 14
-        id14 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ - strideY; // neighbor index (get convention)
         m15 = Phi[nn];                // get neighbor for phi - 15
-        id15 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ + strideY; // neighbor index (get convention)
         m16 = Phi[nn];                // get neighbor for phi - 16
-        id16 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ - strideY; // neighbor index (get convention)
         m17 = Phi[nn];                // get neighbor for phi - 17
-        id17 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ + strideY; // neighbor index (get convention)
         m18 = Phi[nn];                // get neighbor for phi - 18
-        id18 = IDSolid[nn];
         //............Compute the Color Gradient...................................
-        // nx = -(m1 - m2 + 0.5 * (m7 - m8 + m9 - m10 + m11 - m12 + m13 - m14));
-        // ny = -(m3 - m4 + 0.5 * (m7 - m8 - m9 + m10 + m15 - m16 + m17 - m18));
-        // nz = -(m5 - m6 + 0.5 * (m11 - m12 - m13 + m14 + m15 - m16 - m17 + m18));
-
-        nx = -(id1*id2*(m1 - m2) + 0.5 * (id7*id8*(m7 - m8) + id9*id10*(m9 - m10) + id11*id12*(m11 - m12) + id13*id14*(m13 - m14)));
-        ny = -(id3*id4*(m3 - m4) + 0.5 * (id7*id8*(m7 - m8) + id10*id9*(m10 - m9) + id15*id16*(m15 - m16) + id17*id18*(m17 - m18)));
-        nz = -(id5*id6*(m5 - m6) + 0.5 * (id11*id12*(m11 - m12) + id14*id13*(m14 - m13) + id15*id16*(m15 - m16) + id18*id17*(m18 - m17)));
-
-
-        // factor = (1-phi*phi);
-        // factor = (1-phi*phi)*(1-phi*phi);
-        // factor = (1-phi*phi*phi*phi)*(1-phi*phi*phi*phi);
-        // double factor;
-        // factor = 0;
-        // if (phi > -0.9 && phi < 0.9)
-            // factor = 1;
-        // nsx = factor*((id1*id2-1)*(m1 - m2) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id9*id10-1)*(m9 - m10) + (id11*id12-1)*(m11 - m12) + (id13*id14-1)*(m13 - m14)));
-        // nsy = factor*((id3*id4-1)*(m3 - m4) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id10*id9-1)*(m10 - m9) + (id15*id16-1)*(m15 - m16) + (id17*id18-1)*(m17 - m18)));
-        // nsz = factor*((id5*id6-1)*(m5 - m6) + 0.5 * ((id11*id12-1)*(m11 - m12) + (id14*id13-1)*(m14 - m13) + (id15*id16-1)*(m15 - m16) + (id18*id17-1)*(m18 - m17)));
-
-        if (phi > -0.9 && phi < 0.9){
-            nx = nx + ((id1*id2-1)*(m1 - m2) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id9*id10-1)*(m9 - m10) + (id11*id12-1)*(m11 - m12) + (id13*id14-1)*(m13 - m14)));
-            ny = ny + ((id3*id4-1)*(m3 - m4) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id10*id9-1)*(m10 - m9) + (id15*id16-1)*(m15 - m16) + (id17*id18-1)*(m17 - m18)));
-            nz = nz + ((id5*id6-1)*(m5 - m6) + 0.5 * ((id11*id12-1)*(m11 - m12) + (id14*id13-1)*(m14 - m13) + (id15*id16-1)*(m15 - m16) + (id18*id17-1)*(m18 - m17)));
-        }
+        nx = -(m1 - m2 + 0.5 * (m7 - m8 + m9 - m10 + m11 - m12 + m13 - m14));
+        ny = -(m3 - m4 + 0.5 * (m7 - m8 - m9 + m10 + m15 - m16 + m17 - m18));
+        nz = -(m5 - m6 + 0.5 * (m11 - m12 - m13 + m14 + m15 - m16 - m17 + m18));
 
         //...........Normalize the Color Gradient.................................
         C = sqrt(nx * nx + ny * ny + nz * nz);
@@ -1591,87 +1548,6 @@ extern "C" void ScaLBL_D3Q19_AAeven_Color(
         nx = nx / ColorMag;
         ny = ny / ColorMag;
         nz = nz / ColorMag;
-
-        ColorGrad[n] = C*nx;
-        ColorGrad[Np + n] = C*ny;
-        ColorGrad[2 * Np + n] = C*nz;
-
-
-
-        // ...........Modify the Color Gradient to set wettability..................
-        // if (phi < 0.9 && phi > -0.9 && (id1*id2*id3*id4*id5*id6*id7*id8*id9*id1*id11*id12*id13*id14*id15*id16*id17*id18 == 0)){
-        if (phi < 0.9 && phi > -0.9 && (id1 == 0 || id2 == 0 || id3 == 0 || id4 == 0 || id5 == 0 || id6 == 0 || id7 == 0 || id8 == 0 || id9 == 0 || id10 == 0 ||
-            id11 == 0 || id12 == 0 || id13 == 0 || id14 == 0 || id15 == 0 || id16 == 0 || id17 == 0 || id18 == 0)){
-
-            // nsx = -(id1 - id2 + 0.5 * (id7 - id8 + id9 - id10 + id11 - id12 + id13 - id14));
-            // nsy = -(id3 - id4 + 0.5 * (id7 - id8 - id9 + id10 + id15 - id16 + id17 - id18));
-            // nsz = -(id5 - id6 + 0.5 * (id11 - id12 - id13 + id14 + id15 - id16 - id17 + id18));
-
-            // double Mag = sqrt(nsx * nsx + nsy * nsy + nsz * nsz);
-            // if (Mag == 0.0)
-            //     Mag = 1.0;
-            // nsx = nsx / Mag;
-            // nsy = nsy / Mag;
-            // nsz = nsz / Mag;
-
-            int int_nsx = (id1 - id2) * 2 + (id7 - id8 + id9 - id10 + id11 - id12 + id13 - id14);
-            int int_nsy = (id3 - id4) * 2 + (id7 - id8 - id9 + id10 + id15 - id16 + id17 - id18);
-            int int_nsz = (id5 - id6) * 2 + (id11 - id12 - id13 + id14 + id15 - id16 - id17 + id18);
-
-            // //Proposta, armazenar os valores de sqrt(0 até 243) em um array e apenas acessar o número. (Mais rápido que calcular a raiz quadrada toda iteração)
-            double Mag = sqrt(int_nsx * int_nsx + int_nsy * int_nsy + int_nsz * int_nsz);
-            if (Mag == 0.0)
-                Mag = 1.0;
-            nsx = -int_nsx / Mag;
-            nsy = -int_nsy / Mag;
-            nsz = -int_nsz / Mag;
-            
-            // double aff;
-            // aff = (m1*(id1-1) + m2*(id2-1) + m3*(id3-1) + m4*(id4-1) + m5*(id5-1) + m6*(id6-1) + m7*(id7-1) + m8*(id8-1) +
-            // m9*(id9-1) + m10*(id10-1) + m11*(id11-1) + m12*(id12-1) + m13*(id13-1) + m14*(id14-1) + m15*(id15-1) +
-            // m16*(id16-1) + m17*(id17-1) + m18*(id18-1)) /
-            // (18 - id1 - id2 - id3 - id4 - id5 - id6 - id7 - id8 - id9 -
-            // id10 - id11 - id12 - id13 - id14 - id15 - id16 - id17 - id18);            
-            int countid =   id1 + id2 + id3 + id4 + id5 + id6 + id7 + id8 + id9 + id10 + id11 + id12 + id13 + id14 + id15 + id16 + id17 + id18;
-            double aff;
-            aff = (m1*(id1-1) + m2*(id2-1) + m3*(id3-1) + m4*(id4-1) + m5*(id5-1) + m6*(id6-1) + m7*(id7-1) + m8*(id8-1) +
-            m9*(id9-1) + m10*(id10-1) + m11*(id11-1) + m12*(id12-1) + m13*(id13-1) + m14*(id14-1) + m15*(id15-1) +
-            m16*(id16-1) + m17*(id17-1) + m18*(id18-1)) / (18 - countid);
-
-            Mag = sqrt(1-(nx*nsx + ny*nsy + nz*nsz)*(nx*nsx + ny*nsy + nz*nsz));
-            if (Mag == 0.0)
-                Mag = 1.0;
-            npx = (nx - nsx*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsx*aff;
-            npy = (ny - nsy*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsy*aff;
-            npz = (nz - nsz*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsz*aff;
-
-            // aff = aff/sqrt(1-aff*aff);
-
-            // Mag = sqrt(1-(nx*nsx + ny*nsy + nz*nsz)*(nx*nsx + ny*nsy + nz*nsz));
-            // if (Mag == 0.0)
-            //     Mag = 1.0;
-            // npx = (nx - nsx*(nx*nsx + ny*nsy + nz*nsz))/Mag + nsx*aff;
-            // npy = (ny - nsy*(nx*nsx + ny*nsy + nz*nsz))/Mag + nsy*aff;
-            // npz = (nz - nsz*(nx*nsx + ny*nsy + nz*nsz))/Mag + nsz*aff;
-
-
-            // Mag = sqrt(npx * npx + npy * npy + npz * npz);
-            // if (Mag == 0.0)
-            //     Mag = 1.0;
-            // nx = npx / Mag;
-            // ny = npy / Mag;
-            // nz = npz / Mag;
-
-            nx = npx;
-            ny = npy;
-            nz = npz;
-
-            ColorGrad[n] = nx*C;
-            ColorGrad[Np + n] = ny*C;
-            ColorGrad[2 * Np + n] = nz*C;
-
-        }
-
 
         // q=0
         fq = dist[n];
@@ -2165,7 +2041,7 @@ extern "C" void ScaLBL_D3Q19_AAeven_Color(
 //		double Fx, double Fy, double Fz, int start, int finish, int Np){
 extern "C" void ScaLBL_D3Q19_AAodd_Color(
     int *neighborList, int *Map, double *dist, double *Aq, double *Bq,
-    double *Den, double *Phi, signed char *IDSolid, bool *Interfacemap, double *ColorGrad, double *Vel, double rhoA, double rhoB,
+    double *Den, double *Phi, signed char *IDSolid, double *Vel, double rhoA, double rhoB,
     double tauA, double tauB, double alpha, double beta, double Fx, double Fy,
     double Fz, int strideY, int strideZ, int start, int finish, int Np) {
 
@@ -2179,13 +2055,10 @@ extern "C" void ScaLBL_D3Q19_AAodd_Color(
     double rho, jx, jy, jz;
     // non-conserved moments
     double m1, m2, m4, m6, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18;
-    signed char id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, id13, id14, id15, id16, id17, id18;
     double m3, m5, m7;
     double nA, nB; // number density
     double a1, b1, a2, b2, nAB, delta;
     double C, nx, ny, nz; //color gradient magnitude and direction
-    double nsx, nsy, nsz; // Rock Fluid interface normal vector
-    double npx, npy, npz; // contact angle vector 
     double ux, uy, uz;
     double phi, tau, rho0, rlx_setA, rlx_setB;
 
@@ -2226,101 +2099,61 @@ extern "C" void ScaLBL_D3Q19_AAodd_Color(
         //........................................................................
         nn = ijk - 1; // neighbor index (get convention)
         m1 = Phi[nn]; // get neighbor for phi - 1
-        id1 = IDSolid[nn]; // 0 if Rock 1 if Fluid
         //........................................................................
         nn = ijk + 1; // neighbor index (get convention)
         m2 = Phi[nn]; // get neighbor for phi - 2
-        id2 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideY; // neighbor index (get convention)
         m3 = Phi[nn];       // get neighbor for phi - 3
-        id3 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideY; // neighbor index (get convention)
         m4 = Phi[nn];       // get neighbor for phi - 4
-        id4 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ; // neighbor index (get convention)
         m5 = Phi[nn];       // get neighbor for phi - 5
-        id5 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ; // neighbor index (get convention)
         m6 = Phi[nn];       // get neighbor for phi - 6
-        id6 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideY - 1; // neighbor index (get convention)
         m7 = Phi[nn];           // get neighbor for phi - 7
-        id7 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideY + 1; // neighbor index (get convention)
         m8 = Phi[nn];           // get neighbor for phi - 8
-        id8 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideY - 1; // neighbor index (get convention)
         m9 = Phi[nn];           // get neighbor for phi - 9
-        id9 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideY + 1; // neighbor index (get convention)
         m10 = Phi[nn];          // get neighbor for phi - 10
-        id10 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ - 1; // neighbor index (get convention)
         m11 = Phi[nn];          // get neighbor for phi - 11
-        id11 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ + 1; // neighbor index (get convention)
         m12 = Phi[nn];          // get neighbor for phi - 12
-        id12 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ - 1; // neighbor index (get convention)
         m13 = Phi[nn];          // get neighbor for phi - 13
-        id13 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ + 1; // neighbor index (get convention)
         m14 = Phi[nn];          // get neighbor for phi - 14
-        id14 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ - strideY; // neighbor index (get convention)
         m15 = Phi[nn];                // get neighbor for phi - 15
-        id15 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ + strideY; // neighbor index (get convention)
         m16 = Phi[nn];                // get neighbor for phi - 16
-        id16 = IDSolid[nn];
         //........................................................................
         nn = ijk + strideZ - strideY; // neighbor index (get convention)
         m17 = Phi[nn];                // get neighbor for phi - 17
-        id17 = IDSolid[nn];
         //........................................................................
         nn = ijk - strideZ + strideY; // neighbor index (get convention)
         m18 = Phi[nn];                // get neighbor for phi - 18
-        id18 = IDSolid[nn];
         //............Compute the Color Gradient...................................
-        // nx = -(m1 - m2 + 0.5 * (m7 - m8 + m9 - m10 + m11 - m12 + m13 - m14));
-        // ny = -(m3 - m4 + 0.5 * (m7 - m8 - m9 + m10 + m15 - m16 + m17 - m18));
-        // nz = -(m5 - m6 + 0.5 * (m11 - m12 - m13 + m14 + m15 - m16 - m17 + m18));
-
-        nx = -(id1*id2*(m1 - m2) + 0.5 * (id7*id8*(m7 - m8) + id9*id10*(m9 - m10) + id11*id12*(m11 - m12) + id13*id14*(m13 - m14)));
-        ny = -(id3*id4*(m3 - m4) + 0.5 * (id7*id8*(m7 - m8) + id10*id9*(m10 - m9) + id15*id16*(m15 - m16) + id17*id18*(m17 - m18)));
-        nz = -(id5*id6*(m5 - m6) + 0.5 * (id11*id12*(m11 - m12) + id14*id13*(m14 - m13) + id15*id16*(m15 - m16) + id18*id17*(m18 - m17)));
-
-
-        // factor = (1-phi*phi);
-        // factor = (1-phi*phi)*(1-phi*phi);
-        // factor = (1-phi*phi*phi*phi)*(1-phi*phi*phi*phi);
-        // double factor;
-        // factor = 0;
-        // if (phi > -0.9 && phi < 0.9)
-            // factor = 1;
-        // nsx = factor*((id1*id2-1)*(m1 - m2) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id9*id10-1)*(m9 - m10) + (id11*id12-1)*(m11 - m12) + (id13*id14-1)*(m13 - m14)));
-        // nsy = factor*((id3*id4-1)*(m3 - m4) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id10*id9-1)*(m10 - m9) + (id15*id16-1)*(m15 - m16) + (id17*id18-1)*(m17 - m18)));
-        // nsz = factor*((id5*id6-1)*(m5 - m6) + 0.5 * ((id11*id12-1)*(m11 - m12) + (id14*id13-1)*(m14 - m13) + (id15*id16-1)*(m15 - m16) + (id18*id17-1)*(m18 - m17)));
-
-        if (phi > -0.9 && phi < 0.9){
-            nx = nx + ((id1*id2-1)*(m1 - m2) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id9*id10-1)*(m9 - m10) + (id11*id12-1)*(m11 - m12) + (id13*id14-1)*(m13 - m14)));
-            ny = ny + ((id3*id4-1)*(m3 - m4) + 0.5 * ((id7*id8-1)*(m7 - m8) + (id10*id9-1)*(m10 - m9) + (id15*id16-1)*(m15 - m16) + (id17*id18-1)*(m17 - m18)));
-            nz = nz + ((id5*id6-1)*(m5 - m6) + 0.5 * ((id11*id12-1)*(m11 - m12) + (id14*id13-1)*(m14 - m13) + (id15*id16-1)*(m15 - m16) + (id18*id17-1)*(m18 - m17)));
-        }
+        nx = -(m1 - m2 + 0.5 * (m7 - m8 + m9 - m10 + m11 - m12 + m13 - m14));
+        ny = -(m3 - m4 + 0.5 * (m7 - m8 - m9 + m10 + m15 - m16 + m17 - m18));
+        nz = -(m5 - m6 + 0.5 * (m11 - m12 - m13 + m14 + m15 - m16 - m17 + m18));
 
         //...........Normalize the Color Gradient.................................
         C = sqrt(nx * nx + ny * ny + nz * nz);
@@ -2330,84 +2163,6 @@ extern "C" void ScaLBL_D3Q19_AAodd_Color(
         nx = nx / ColorMag;
         ny = ny / ColorMag;
         nz = nz / ColorMag;
-
-        ColorGrad[n] = C*nx;
-        ColorGrad[Np + n] = C*ny;
-        ColorGrad[2 * Np + n] = C*nz;
-
-        // ...........Modify the Color Gradient to set wettability..................
-        // if (phi < 0.9 && phi > -0.9 && (id1*id2*id3*id4*id5*id6*id7*id8*id9*id10*id11*id12*id13*id14*id15*id16*id17*id18 == 0)){
-        if (phi < 0.9 && phi > -0.9 && (id1 == 0 || id2 == 0 || id3 == 0 || id4 == 0 || id5 == 0 || id6 == 0 || id7 == 0 || id8 == 0 || id9 == 0 || id10 == 0 ||
-            id11 == 0 || id12 == 0 || id13 == 0 || id14 == 0 || id15 == 0 || id16 == 0 || id17 == 0 || id18 == 0)){
-
-            // nsx = -(id1 - id2 + 0.5 * (id7 - id8 + id9 - id10 + id11 - id12 + id13 - id14));
-            // nsy = -(id3 - id4 + 0.5 * (id7 - id8 - id9 + id10 + id15 - id16 + id17 - id18));
-            // nsz = -(id5 - id6 + 0.5 * (id11 - id12 - id13 + id14 + id15 - id16 - id17 + id18));
-
-            // double Mag = sqrt(nsx * nsx + nsy * nsy + nsz * nsz);
-            // if (Mag == 0.0)
-            //     Mag = 1.0;
-            // nsx = nsx / Mag;
-            // nsy = nsy / Mag;
-            // nsz = nsz / Mag;
-
-            int int_nsx = (id1 - id2) * 2 + (id7 - id8 + id9 - id10 + id11 - id12 + id13 - id14);
-            int int_nsy = (id3 - id4) * 2 + (id7 - id8 - id9 + id10 + id15 - id16 + id17 - id18);
-            int int_nsz = (id5 - id6) * 2 + (id11 - id12 - id13 + id14 + id15 - id16 - id17 + id18);
-
-            // //Proposta, armazenar os valores de sqrt(0 até 243) em um array e apenas acessar o número. (Mais rápido que calcular a raiz quadrada toda iteração)
-            double Mag = sqrt(int_nsx * int_nsx + int_nsy * int_nsy + int_nsz * int_nsz);
-            if (Mag == 0.0)
-                Mag = 1.0;
-            nsx = -int_nsx / Mag;
-            nsy = -int_nsy / Mag;
-            nsz = -int_nsz / Mag;
-            
-            // double aff;
-            // aff = (m1*(id1-1) + m2*(id2-1) + m3*(id3-1) + m4*(id4-1) + m5*(id5-1) + m6*(id6-1) + m7*(id7-1) + m8*(id8-1) +
-            // m9*(id9-1) + m10*(id10-1) + m11*(id11-1) + m12*(id12-1) + m13*(id13-1) + m14*(id14-1) + m15*(id15-1) +
-            // m16*(id16-1) + m17*(id17-1) + m18*(id18-1)) /
-            // (18 - id1 - id2 - id3 - id4 - id5 - id6 - id7 - id8 - id9 -
-            // id10 - id11 - id12 - id13 - id14 - id15 - id16 - id17 - id18);            
-            int countid =   id1 + id2 + id3 + id4 + id5 + id6 + id7 + id8 + id9 + id10 + id11 + id12 + id13 + id14 + id15 + id16 + id17 + id18;
-            double aff;
-            aff = (m1*(id1-1) + m2*(id2-1) + m3*(id3-1) + m4*(id4-1) + m5*(id5-1) + m6*(id6-1) + m7*(id7-1) + m8*(id8-1) +
-            m9*(id9-1) + m10*(id10-1) + m11*(id11-1) + m12*(id12-1) + m13*(id13-1) + m14*(id14-1) + m15*(id15-1) +
-            m16*(id16-1) + m17*(id17-1) + m18*(id18-1)) / (18 - countid);
-
-            Mag = sqrt(1-(nx*nsx + ny*nsy + nz*nsz)*(nx*nsx + ny*nsy + nz*nsz));
-            if (Mag == 0.0)
-                Mag = 1.0;
-            npx = (nx - nsx*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsx*aff;
-            npy = (ny - nsy*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsy*aff;
-            npz = (nz - nsz*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsz*aff;
-
-            // aff = aff/sqrt(1-aff*aff);
-
-            // Mag = sqrt(1-(nx*nsx + ny*nsy + nz*nsz)*(nx*nsx + ny*nsy + nz*nsz));
-            // if (Mag == 0.0)
-            //     Mag = 1.0;
-            // npx = (nx - nsx*(nx*nsx + ny*nsy + nz*nsz))/Mag + nsx*aff;
-            // npy = (ny - nsy*(nx*nsx + ny*nsy + nz*nsz))/Mag + nsy*aff;
-            // npz = (nz - nsz*(nx*nsx + ny*nsy + nz*nsz))/Mag + nsz*aff;
-
-            // Mag = sqrt(npx * npx + npy * npy + npz * npz);
-            // if (Mag == 0.0)
-            //     Mag = 1.0;
-            // nx = npx / Mag;
-            // ny = npy / Mag;
-            // nz = npz / Mag;
-
-            nx = npx;
-            ny = npy;
-            nz = npz;
-
-            ColorGrad[n] = nx*C;
-            ColorGrad[Np + n] = ny*C;
-            ColorGrad[2 * Np + n] = nz*C;
-
-        }
-
 
         // q=0
         fq = dist[n];
@@ -3536,7 +3291,6 @@ extern "C" void ScaLBL_CopySlice_z(double *Phi, int Nx, int Ny, int Nz,
     }
 }
 
-
 extern "C" void ScaLBL_IDSolid_Init(double *Phi, signed char *IDSolid,
                                        int start, int finish) {
     int n;
@@ -3549,78 +3303,6 @@ extern "C" void ScaLBL_IDSolid_Init(double *Phi, signed char *IDSolid,
         }
         else{
             IDSolid[n] = 0;
-        }
-    }
-}
-
-extern "C" void ScaLBL_Interfacemap_Init(int *Map, signed char *IDSolid, bool *Interfacemap, 
-    int strideY, int strideZ, int start, int finish) {
-    int n;
-    int nn, ijk;
-    signed char id1, id2, id3, id4, id5, id6, id7, id8, id9, id10, id11, id12, id13, id14, id15, id16, id17, id18;
-
-    for (n = start; n < finish; n++) {
-        ijk = Map[n];
-        nn = ijk - 1; // neighbor index (get convention)
-        id1 = IDSolid[nn]; // 0 if Rock 1 if Fluid
-        //........................................................................
-        nn = ijk + 1; // neighbor index (get convention)
-        id2 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideY; // neighbor index (get convention)
-        id3 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideY; // neighbor index (get convention)
-        id4 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideZ; // neighbor index (get convention)
-        id5 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideZ; // neighbor index (get convention)
-        id6 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideY - 1; // neighbor index (get convention)
-        id7 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideY + 1; // neighbor index (get convention)
-        id8 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideY - 1; // neighbor index (get convention)
-        id9 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideY + 1; // neighbor index (get convention)
-        id10 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideZ - 1; // neighbor index (get convention)
-        id11 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideZ + 1; // neighbor index (get convention)
-        id12 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideZ - 1; // neighbor index (get convention)
-        id13 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideZ + 1; // neighbor index (get convention)
-        id14 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideZ - strideY; // neighbor index (get convention)
-        id15 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideZ + strideY; // neighbor index (get convention)
-        id16 = IDSolid[nn];
-        //........................................................................
-        nn = ijk + strideZ - strideY; // neighbor index (get convention)
-        id17 = IDSolid[nn];
-        //........................................................................
-        nn = ijk - strideZ + strideY; // neighbor index (get convention)
-        id18 = IDSolid[nn];
-
-
-        if (id1*id2*id3*id4*id5*id6*id7*id8*id9*id10*id11*id12*id13*id14*id15*id16*id17*id18 == 0){
-            Interfacemap[n] = true;
-        }
-        else{
-            Interfacemap[n] = false;
         }
     }
 }

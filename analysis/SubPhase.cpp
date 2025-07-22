@@ -1,3 +1,19 @@
+/*
+  Copyright 2013--2018 James E. McClure, Virginia Polytechnic & State University
+  Copyright Equnior ASA
+
+  This file is part of the Open Porous Media project (OPM).
+  OPM is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  OPM is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with OPM.  If not, see <http://www.gnu.org/licenses/>.
+*/
 #include "analysis/SubPhase.h"
 
 // Constructor
@@ -111,7 +127,7 @@ SubPhase::SubPhase(std::shared_ptr<Domain> dm) : Dm(dm) {
         if (WriteHeader) {
             // If timelog is empty, write a short header to list the averages
             fprintf(TIMELOG,
-                    "time sw krw krn krwf krnf vw vn force pw pn wet peff BTw BTn\n");
+                    "sw krw krn krwf krnf vw vn force pw pn wet peff\n");
         }
     }
 }
@@ -195,7 +211,7 @@ void SubPhase::SetParams(double rhoA, double rhoB, double tauA, double tauB,
     beta = B;
 }
 
-void SubPhase::Basic(int timestep) {
+void SubPhase::Basic() {
     int i, j, k, n, imin, jmin, kmin, kmax;
 
     // If external boundary conditions are set, do not average over the inlet
@@ -256,10 +272,9 @@ void SubPhase::Basic(int timestep) {
                     double nA = Rho_n(n);
                     double nB = Rho_w(n);
                     double phi = (nA - nB) / (nA + nB);
-                    nb.V += nA;
-                    wb.V += nB;
                     if (phi > 0.0) {
                         nA = 1.0;
+                        nb.V += 1.0;
                         nb.M += nA * rho_n;
                         // velocity
                         nb.Px += rho_n * nA * Vel_x(n);
@@ -268,6 +283,7 @@ void SubPhase::Basic(int timestep) {
                     } else {
                         nB = 1.0;
                         wb.M += nB * rho_w;
+                        wb.V += 1.0;
 
                         // velocity
                         wb.Px += rho_w * nB * Vel_x(n);
@@ -306,27 +322,6 @@ void SubPhase::Basic(int timestep) {
         }
     }
 
-
-    //-------------BreakThroughPoint--------Edition:Ricardo-----------------------------  
-    if (Dm->kproc() == Dm->nprocz() - 1) {
-        for (j = jmin; j < Ny - 1; j++) {
-            for (i = imin; i < Nx - 1; i++) {
-                n = (kmax-5) * Nx * Ny + j * Nx + i;
-                if (Dm->id[n] > 0) {
-                    double nA = Rho_n(n);
-                    double nB = Rho_w(n);
-                    double phi = (nA - nB) / (nA + nB);
-                    if (phi > 0.0) {
-                        nb.Vout += 1.0;
-                    } else {
-                        wb.Vout += 1.0;
-                    }
-                }
-            }
-        }
-    }
-    //----------------------------------------------------Edition:Ricardo--------------
-
     total_wetting_interaction = count_wetting_interaction = 0.0;
     total_wetting_interaction_global = count_wetting_interaction_global = 0.0;
     for (k = kmin; k < kmax; k++) {
@@ -349,8 +344,6 @@ void SubPhase::Basic(int timestep) {
 
     gwb.V = Dm->Comm.sumReduce(wb.V);
     gnb.V = Dm->Comm.sumReduce(nb.V);
-    gwb.Vout = Dm->Comm.sumReduce(wb.Vout);
-    gnb.Vout = Dm->Comm.sumReduce(nb.Vout);
     gwb.M = Dm->Comm.sumReduce(wb.M);
     gnb.M = Dm->Comm.sumReduce(nb.M);
     gwb.Px = Dm->Comm.sumReduce(wb.Px);
@@ -404,7 +397,6 @@ void SubPhase::Basic(int timestep) {
     if (gnb.Pz != gnb.Pz)
         err = true;
 
-
     if (Dm->rank() == 0) {
         /* align flow direction based on total mass flux */
         double dir_x = gwb.Px + gnb.Px;
@@ -435,7 +427,7 @@ void SubPhase::Basic(int timestep) {
             dir_z = 1.0;
             force_mag = 1.0;
         }
-        double Porosity = (gwb.V + gnb.V)/Dm->Volume;
+        double Porosity = (gwb.V + gnb.V) / Dm->Volume;
         double saturation = gwb.V / (gwb.V + gnb.V);
         double water_flow_rate =
             gwb.V * (gwb.Px * dir_x + gwb.Py * dir_y + gwb.Pz * dir_z) / gwb.M /
@@ -454,17 +446,20 @@ void SubPhase::Basic(int timestep) {
         //double total_flow_rate = water_flow_rate + not_water_flow_rate;
         //double fractional_flow = water_flow_rate / total_flow_rate;
         double h = Dm->voxel_length;
-        double krn = h * h * nu_n * not_water_flow_rate / force_mag;
-        double krw = h * h * nu_w * water_flow_rate / force_mag;
+        double krn = h * h * nu_n * Porosity * not_water_flow_rate / force_mag;
+        double krw = h * h * nu_w * Porosity * water_flow_rate / force_mag;
         /* not counting films */
-        double krnf = krn - h * h * nu_n * not_water_film_flow_rate / force_mag;
-        double krwf = krw - h * h * nu_w * water_film_flow_rate / force_mag;
+        double krnf = krn - h * h * nu_n * Porosity * not_water_film_flow_rate /
+                                force_mag;
+        double krwf =
+            krw - h * h * nu_w * Porosity * water_film_flow_rate / force_mag;
         double eff_pressure = 1.0 / (krn + krw); // effective pressure drop
+
         fprintf(TIMELOG,
-                "%i %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g\n",
-                timestep, saturation, krw, krn, krwf, krnf, h * water_flow_rate,
+                "%.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g %.8g\n",
+                saturation, krw, krn, krwf, krnf, h * water_flow_rate,
                 h * not_water_flow_rate, force_mag, gwb.p, gnb.p,
-                total_wetting_interaction_global, eff_pressure, gwb.Vout, gnb.Vout);
+                total_wetting_interaction_global, eff_pressure);
         fflush(TIMELOG);
     }
     if (err == true) {

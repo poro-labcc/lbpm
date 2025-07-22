@@ -142,11 +142,9 @@ public:
     int *dvcMap;
     double *fq, *Aq, *Bq;
     double *Den, *Phi;
-    double *ColorGrad;
+    //double *ColorGrad;
     double *Velocity;
     double *Pressure;
-    bool *Interfacemap;
-    bool *NsVector;
 
     /**
     * \brief Assign wetting affinity values 

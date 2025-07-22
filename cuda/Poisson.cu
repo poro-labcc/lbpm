@@ -1,3 +1,19 @@
+/*
+  Copyright 2013--2018 James E. McClure, Virginia Polytechnic & State University
+  Copyright Equnior ASA
+
+  This file is part of the Open Porous Media project (OPM).
+  OPM is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  OPM is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with OPM.  If not, see <http://www.gnu.org/licenses/>.
+*/
 #include <stdio.h>
 #include <math.h>
 //#include <cuda_profiler_api.h>
@@ -522,7 +538,8 @@ __global__  void dvc_ScaLBL_D3Q19_AAeven_Poisson(int *Map, double *dist,
 			//Load data
 			//When Helmholtz-Smoluchowski slipping velocity BC is used, the bulk fluid is considered as electroneutral
 			//and thus the net space charge density is zero. 
-			rho_e = (UseSlippingVelBC==1) ? 0.0 : Den_charge[n] / epsilon_LB;
+			//rho_e = (UseSlippingVelBC==1) ? 0.0 : Den_charge[n] / epsilon_LB;
+			rho_e = Den_charge[n] / epsilon_LB;
 
 			f0 = dist[n];
 			f1 = dist[2 * Np + n];
@@ -681,16 +698,15 @@ __global__  void dvc_ScaLBL_D3Q19_AAodd_Poisson_Potential_BC_z(int *d_neighborLi
 	
 	double W1 = 1.0/24.0;
 	double W2 = 1.0/48.0;
-    	int nr5, nr11, nr14, nr15, nr18;
-    
+	int nr5, nr11, nr14, nr15, nr18;
+
 	int idx = blockIdx.x*blockDim.x + threadIdx.x;
 
 	if (idx < count){
 		int n = list[idx];
 
-        
-        // Unknown distributions
-        nr5 = d_neighborList[n + 4 * Np];
+		// Unknown distributions
+		nr5 = d_neighborList[n + 4 * Np];
         nr11 = d_neighborList[n + 10 * Np];
         nr15 = d_neighborList[n + 14 * Np];
         nr14 = d_neighborList[n + 13 * Np];
@@ -769,8 +785,9 @@ extern "C" void ScaLBL_D3Q19_AAodd_Poisson_Potential_BC_Z(int *d_neighborList, i
 
 extern "C" void ScaLBL_D3Q19_AAodd_Poisson(int *neighborList, int *Map,
 		double *dist, double *Den_charge,
-		double *Psi, double *ElectricField, 
-		double tau, double epsilon_LB, bool UseSlippingVelBC,
+		double *Psi, double *ElectricField,
+		double tau, double Vt, double Cp,
+		double epsilon_LB, bool UseSlippingVelBC,
 		int start, int finish, int Np) {
 	//cudaProfilerStart();
 	dvc_ScaLBL_D3Q19_AAodd_Poisson<<<NBLOCKS,NTHREADS >>>(neighborList, Map,
@@ -783,8 +800,8 @@ extern "C" void ScaLBL_D3Q19_AAodd_Poisson(int *neighborList, int *Map,
 }
 
 extern "C" void ScaLBL_D3Q19_AAeven_Poisson(int *Map, double *dist,
-		double *Den_charge, double *Psi,
-		double *ElectricField, double *Error, double tau,
+		double *Den_charge, double *Psi, double *ElectricField, double *Error,
+		double tau, double Vt, double Cp,
 		double epsilon_LB, bool UseSlippingVelBC,
 		int start, int finish, int Np) {
 

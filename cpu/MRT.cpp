@@ -1,5 +1,6 @@
 /*
   Copyright 2013--2018 James E. McClure, Virginia Polytechnic & State University
+  Copyright Equnior ASA
 
   This file is part of the Open Porous Media project (OPM).
   OPM is free software: you can redistribute it and/or modify
@@ -13,7 +14,6 @@
   You should have received a copy of the GNU General Public License
   along with OPM.  If not, see <http://www.gnu.org/licenses/>.
 */
-
 extern "C" void INITIALIZE(char *ID, double *f_even, double *f_odd, int Nx,
                            int Ny, int Nz) {
     int n, N;
