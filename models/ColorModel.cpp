@@ -449,6 +449,7 @@ void ScaLBL_ColorModel::Create() {
     ScaLBL_AllocateDeviceMemory((void **)&Velocity, 3 * sizeof(double) * Np);
     //ScaLBL_AllocateDeviceMemory((void **)&ColorGrad, 3 * sizeof(double) * Np);
     ScaLBL_AllocateDeviceMemory((void **)&IDSolid, sizeof(signed char) * Nx * Ny * Nz);
+    //ScaLBL_AllocateDeviceMemory((void **)&SNormalVector, 4 * sizeof(double) * Np);
 
 
     //...........................................................................

@@ -1418,6 +1418,9 @@ __global__  void dvc_ScaLBL_D3Q19_AAeven_Color(int *Map, double *dist, double *A
 			m18 = Phi[nn];                // get neighbor for phi - 18
 			id18 = IDSolid[nn];
 			//............Compute the Color Gradient...................................
+			// nx = -(m1-m2+0.5*(m7-m8+m9-m10+m11-m12+m13-m14));
+			// ny = -(m3-m4+0.5*(m7-m8-m9+m10+m15-m16+m17-m18));
+			// nz = -(m5-m6+0.5*(m11-m12-m13+m14+m15-m16-m17+m18));
 
 			nx = -(id1*id2*(m1 - m2) + 0.5 * (id7*id8*(m7 - m8) + id9*id10*(m9 - m10) + id11*id12*(m11 - m12) + id13*id14*(m13 - m14)));
 			ny = -(id3*id4*(m3 - m4) + 0.5 * (id7*id8*(m7 - m8) + id10*id9*(m10 - m9) + id15*id16*(m15 - m16) + id17*id18*(m17 - m18)));
@@ -1430,7 +1433,6 @@ __global__  void dvc_ScaLBL_D3Q19_AAeven_Color(int *Map, double *dist, double *A
 				nz = nz + ((id5*id6-1)*(m5 - m6) + 0.5 * ((id11*id12-1)*(m11 - m12) + (id14*id13-1)*(m14 - m13) + (id15*id16-1)*(m15 - m16) + (id18*id17-1)*(m18 - m17)));
 			}
 
-
 			//...........Normalize the Color Gradient.................................
 			C = sqrt(nx*nx+ny*ny+nz*nz);
 			double ColorMag = C;
@@ -1439,14 +1441,15 @@ __global__  void dvc_ScaLBL_D3Q19_AAeven_Color(int *Map, double *dist, double *A
 			ny = ny/ColorMag;
 			nz = nz/ColorMag;		
 
-			if (phi < 0.9 && phi > -0.9 && (id1 == 0 || id2 == 0 || id3 == 0 || id4 == 0 || id5 == 0 || id6 == 0 || id7 == 0 || id8 == 0 || id9 == 0 || id10 == 0 ||
-				id11 == 0 || id12 == 0 || id13 == 0 || id14 == 0 || id15 == 0 || id16 == 0 || id17 == 0 || id18 == 0)){
+
+			//...........Correct wettability vector.................................
+			if (id1 == 0 || id2 == 0 || id3 == 0 || id4 == 0 || id5 == 0 || id6 == 0 || id7 == 0 || id8 == 0 || id9 == 0 || id10 == 0 ||
+				id11 == 0 || id12 == 0 || id13 == 0 || id14 == 0 || id15 == 0 || id16 == 0 || id17 == 0 || id18 == 0){
 
 				int int_nsx = (id1 - id2) * 2 + (id7 - id8 + id9 - id10 + id11 - id12 + id13 - id14);
 				int int_nsy = (id3 - id4) * 2 + (id7 - id8 - id9 + id10 + id15 - id16 + id17 - id18);
 				int int_nsz = (id5 - id6) * 2 + (id11 - id12 - id13 + id14 + id15 - id16 - id17 + id18);
 
-				// //Proposta, armazenar os valores de sqrt(0 até 243) em um array e apenas acessar o número. (Mais rápido que calcular a raiz quadrada toda iteração)
 				double Mag = sqrt(double(int_nsx * int_nsx + int_nsy * int_nsy + int_nsz * int_nsz));
 				if (Mag == 0.0)
 					Mag = 1.0;
@@ -1461,6 +1464,9 @@ __global__  void dvc_ScaLBL_D3Q19_AAeven_Color(int *Map, double *dist, double *A
 				m9*(id9-1) + m10*(id10-1) + m11*(id11-1) + m12*(id12-1) + m13*(id13-1) + m14*(id14-1) + m15*(id15-1) +
 				m16*(id16-1) + m17*(id17-1) + m18*(id18-1)) / (18 - countid);
 
+				float gate = 0.5 * (tanh(2000 * (phi + 0.8)) - tanh(2000 * (phi - 0.8)));
+				aff = gate * aff;
+
 				Mag = sqrt(1-(nx*nsx + ny*nsy + nz*nsz)*(nx*nsx + ny*nsy + nz*nsz));
 				if (Mag == 0.0)
 					Mag = 1.0;
@@ -1468,11 +1474,21 @@ __global__  void dvc_ScaLBL_D3Q19_AAeven_Color(int *Map, double *dist, double *A
 				npy = (ny - nsy*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsy*aff;
 				npz = (nz - nsz*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsz*aff;
 
-
 				nx = npx;
 				ny = npy;
 				nz = npz;
 
+				// float gate = 0.5 * (tanh(2000 * (phi + 0.9)) - tanh(2000 * (phi - 0.9)));
+				// nx = gate * npx;
+				// ny = gate * npy;
+				// nz = gate * npz;
+				// C = gate * C;
+				// if (phi <= -0.9 || phi >= 0.9){
+				// 	C = 0 * C;
+				// 	nx = 0 * npx;
+				// 	ny = 0 * npy;
+				// 	nz = 0 * npz;
+				// }
 			}
 
 			// q=0
@@ -2071,6 +2087,9 @@ __global__ void dvc_ScaLBL_D3Q19_AAodd_Color(int *neighborList, int *Map, double
 			m18 = Phi[nn];                // get neighbor for phi - 18
 			id18 = IDSolid[nn];
 			//............Compute the Color Gradient...................................
+			// nx = -(m1-m2+0.5*(m7-m8+m9-m10+m11-m12+m13-m14));
+			// ny = -(m3-m4+0.5*(m7-m8-m9+m10+m15-m16+m17-m18));
+			// nz = -(m5-m6+0.5*(m11-m12-m13+m14+m15-m16-m17+m18));
 
 			nx = -(id1*id2*(m1 - m2) + 0.5 * (id7*id8*(m7 - m8) + id9*id10*(m9 - m10) + id11*id12*(m11 - m12) + id13*id14*(m13 - m14)));
 			ny = -(id3*id4*(m3 - m4) + 0.5 * (id7*id8*(m7 - m8) + id10*id9*(m10 - m9) + id15*id16*(m15 - m16) + id17*id18*(m17 - m18)));
@@ -2083,7 +2102,6 @@ __global__ void dvc_ScaLBL_D3Q19_AAodd_Color(int *neighborList, int *Map, double
 				nz = nz + ((id5*id6-1)*(m5 - m6) + 0.5 * ((id11*id12-1)*(m11 - m12) + (id14*id13-1)*(m14 - m13) + (id15*id16-1)*(m15 - m16) + (id18*id17-1)*(m18 - m17)));
 			}
 
-
 			//...........Normalize the Color Gradient.................................
 			C = sqrt(nx*nx+ny*ny+nz*nz);
 			double ColorMag = C;
@@ -2092,8 +2110,9 @@ __global__ void dvc_ScaLBL_D3Q19_AAodd_Color(int *neighborList, int *Map, double
 			ny = ny/ColorMag;
 			nz = nz/ColorMag;		
 
-			if (phi < 0.9 && phi > -0.9 && (id1 == 0 || id2 == 0 || id3 == 0 || id4 == 0 || id5 == 0 || id6 == 0 || id7 == 0 || id8 == 0 || id9 == 0 || id10 == 0 ||
-				id11 == 0 || id12 == 0 || id13 == 0 || id14 == 0 || id15 == 0 || id16 == 0 || id17 == 0 || id18 == 0)){
+			//...........Correct wettability vector.................................
+			if (id1 == 0 || id2 == 0 || id3 == 0 || id4 == 0 || id5 == 0 || id6 == 0 || id7 == 0 || id8 == 0 || id9 == 0 || id10 == 0 ||
+				id11 == 0 || id12 == 0 || id13 == 0 || id14 == 0 || id15 == 0 || id16 == 0 || id17 == 0 || id18 == 0){
 
 				int int_nsx = (id1 - id2) * 2 + (id7 - id8 + id9 - id10 + id11 - id12 + id13 - id14);
 				int int_nsy = (id3 - id4) * 2 + (id7 - id8 - id9 + id10 + id15 - id16 + id17 - id18);
@@ -2114,6 +2133,9 @@ __global__ void dvc_ScaLBL_D3Q19_AAodd_Color(int *neighborList, int *Map, double
 				m9*(id9-1) + m10*(id10-1) + m11*(id11-1) + m12*(id12-1) + m13*(id13-1) + m14*(id14-1) + m15*(id15-1) +
 				m16*(id16-1) + m17*(id17-1) + m18*(id18-1)) / (18 - countid);
 
+				// float gate = 0.5 * (tanh(2000 * (phi + 0.8)) - tanh(2000 * (phi - 0.8)));
+				// aff = gate * aff;
+
 				Mag = sqrt(1-(nx*nsx + ny*nsy + nz*nsz)*(nx*nsx + ny*nsy + nz*nsz));
 				if (Mag == 0.0)
 					Mag = 1.0;
@@ -2121,11 +2143,21 @@ __global__ void dvc_ScaLBL_D3Q19_AAodd_Color(int *neighborList, int *Map, double
 				npy = (ny - nsy*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsy*aff;
 				npz = (nz - nsz*(nx*nsx + ny*nsy + nz*nsz))*sqrt(1-aff*aff)/Mag + nsz*aff;
 
-
 				nx = npx;
 				ny = npy;
 				nz = npz;
 
+				// float gate = 0.5 * (tanh(2000 * (phi + 0.9)) - tanh(2000 * (phi - 0.9)));
+				// nx = gate * npx;
+				// ny = gate * npy;
+				// nz = gate * npz;
+				// C = gate * C;
+				// if (phi <= -0.9 || phi >= 0.9){
+				// 	C = 0 * C;
+					// nx = 0 * npx;
+					// ny = 0 * npy;
+					// nz = 0 * npz;
+				// }
 			}
 
 
