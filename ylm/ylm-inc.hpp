@@ -86,7 +86,7 @@ class Young_Laplace_Method{
     int _ny, _nx, _nz;          // Dimensões do Micromodelo
     int dimy, dimx, dimz;       // salvo apenas os parâmetros de entrada; a ser utilizado no print .dat ADICIONADO AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     matrix _mmorig;             // Micromodelo original, não editável
-    matrix _mm;                 // Micromodelo de trabalho, editável
+    matrix _mm, _mmcopy;                 // Micromodelo de trabalho, editável
     
     int _NP;                    // Número de pixeis na parte porosa
     
@@ -367,6 +367,7 @@ class Young_Laplace_Method{
     matrix::extent_gen extents;
     _mmorig.resize  ( extents[_nx][_ny][_nz] );
     _mm.resize      ( extents[_nx][_ny][_nz] );
+    _mmcopy.resize  ( extents[_nx][_ny][_nz] );
     _edt.resize     ( extents[_nx][_ny][_nz] );
     _matrix1.resize ( extents[_nx][_ny][_nz] );
     _matrix2.resize ( extents[_nx][_ny][_nz] );
@@ -1205,33 +1206,113 @@ class Young_Laplace_Method{
     else{ x0=1; xM = _nx-1; y0=1; yM = _ny-1; z0=1; zM = _nz-1;}
     
   
-    //aux_raw = static_cast<uint8_t>(iaux);
-    //fwrite(&aux_raw, sizeof(uint8_t), 1, outfile);
+    // aux_raw = static_cast<uint8_t>(iaux);
+    // fwrite(&aux_raw, sizeof(uint8_t), 1, outfile);
+
+
+
+
+
+
+
+
   
     
+      //SALVAMENTO ANTIGO:
+
+    // int Ninlet=0, Noutlet=0, Nporo=0;
+    // for( int z=z0; z<zM; z++ ){
+    // for( int y=y0; y<yM; y++ ){
+    // for( int x=x0; x<xM; x++ ){    
+      
+    //   iaux = _mm[x][y][z];
+    //   if     ( iaux==_I ) Ninlet++;
+    //   else if( iaux==_O ) Noutlet++;
+
+    //   if(iaux != _S ) Nporo++;
+      
+    //   if( createRAW ){
+    //     aux_raw = static_cast<uint8_t>(iaux);
+    //     fwrite(&aux_raw, sizeof(uint8_t), 1, FRAW);
+    //   }
+    // }
+    // }
+    // }
+    // if( createRAW ) fclose(FRAW); 
+    // tt_end = _ttime() - tt_end;
+
+
+
+
+
+
+      //SALVEAMENTO NOVO (com aging):
+
+      int dx[26] = {-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 1,-1, 0, 1,-1, 0, 1,-1, 0, 1,-1, 1, 0};
+      int dy[26] = {-1,-1,-1, 0, 0, 0, 1, 1, 1,-1,-1,-1, 0, 0, 1, 1, 1, 0, 0, 0,-1,-1,-1, 1, 1, 1};
+      int dz[26] = {-1,-1,-1,-1,-1,-1,-1,-1,-1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+
     int Ninlet=0, Noutlet=0, Nporo=0;
     for( int z=z0; z<zM; z++ ){
     for( int y=y0; y<yM; y++ ){
     for( int x=x0; x<xM; x++ ){    
       
+
       iaux = _mm[x][y][z];
-      if     ( iaux==_I ) Ninlet++;
-      else if( iaux==_O ) Noutlet++;
+      
+      if (_mmcopy[x][y][z] != -_I && _mmcopy[x][y][z] != -_O)
+      _mmcopy[x][y][z] = iaux;
+      if (iaux == _I) {
+        Ninlet++;
+        // percorre 26 vizinhos
+        for(int n=0; n<26; n++){
+            int xn = x + dx[n];
+            int yn = y + dy[n];
+            int zn = z + dz[n];
+            // checa limites
+            if(xn>=x0 && xn<xM && yn>=y0 && yn<yM && zn>=z0 && zn<zM){
+                if(_mm[xn][yn][zn] == _S) _mmcopy[xn][yn][zn] = -_I;
+              }
+          }
+      }
+      else if (iaux == _O) {
+        Noutlet++;
+        // percorre 26 vizinhos
+        for(int n=0; n<26; n++){
+            int xn = x + dx[n];
+            int yn = y + dy[n];
+            int zn = z + dz[n];
+            // checa limites
+            if(xn>=x0 && xn<xM && yn>=y0 && yn<yM && zn>=z0 && zn<zM){
+                if(_mm[xn][yn][zn] == _S) _mmcopy[xn][yn][zn] = -_O;
+              }
+          }
+      }
 
       if(iaux != _S ) Nporo++;
       
+    }
+    }
+    }
+
+    for( int z=z0; z<zM; z++ ){
+    for( int y=y0; y<yM; y++ ){
+    for( int x=x0; x<xM; x++ ){    
+      
+      iaux = _mmcopy[x][y][z];
+
       if( createRAW ){
         aux_raw = static_cast<uint8_t>(iaux);
         fwrite(&aux_raw, sizeof(uint8_t), 1, FRAW);
-      }
-    }
-    }
-    }
+      }}}}
+
+
     if( createRAW ) fclose(FRAW); 
     tt_end = _ttime() - tt_end;
+
     
-    //LEMBRETE: TRATAR CASO COMPRESSIVEL E INCOMPRESSIVEL (CAMADAS)
-  
+ 
   
     //Modificação feita por: Thomas Carmo
     // int camadas = 2*(dimx*dimy+dimx*dimz+dimy*dimz) - (4*(dimx+dimy+dimz) - 8); //ADICIONADO AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
