@@ -11,9 +11,9 @@
 //   (x,y,z). Portanto, (coluna,linha,plano).
 //
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
-#ifndef YOUNG_LAPLACE_METHOD_HPP
-#define YOUNG_LAPLACE_METHOD_HPP
 
+#ifndef FULL_MORPHOLOGY_HPP
+#define FULL_MORPHOLOGY_HPP
 
 // Padrão do C++
 #include <fstream>
@@ -46,15 +46,17 @@ using namespace std;
 #include "../analysis/distance.h"
 // #include "../analysis/morphology.h"
 
-// Para matrizes 2D e 3D com Boost
-#include "boost/multi_array.hpp"
-typedef multi_array<int , 3> matrix;
-typedef multi_array<bool, 3> matrix_bool;
+// // Para matrizes 2D e 3D com Boost
+// #include "boost/multi_array.hpp"
+// typedef multi_array<int , 3> matrix;
+// typedef multi_array<bool, 3> matrix_bool;
 
-// Desabilito as checagens do Boost para ganhar velocidade
-// Mas se houver algum problema, só vai dar pau no programa, nenhum aviso ;-)
-#define BOOST_DISABLE_ASSERTS
+// // Desabilito as checagens do Boost para ganhar velocidade
+// // Mas se houver algum problema, só vai dar pau no programa, nenhum aviso ;-)
+// #define BOOST_DISABLE_ASSERTS
 
+typedef Array<int> IntArray;
+typedef Array<bool> BoolArray;
 
 
 
@@ -68,10 +70,10 @@ typedef vector< vector<int> > MTvvi;
 
 // -----------------------------------------------------------------------------
 // Classe
-class Young_Laplace_Method{
+class Full_Morphology{
   public:
   
-    Young_Laplace_Method( int, char *[] );
+    Full_Morphology( int, char *[] );
     
     int Ndiam (void) const { return _d.size(); }
     int diameter( MTci & );
@@ -85,8 +87,8 @@ class Young_Laplace_Method{
   
     int _ny, _nx, _nz;          // Dimensões do Micromodelo
     int dimy, dimx, dimz;       // salvo apenas os parâmetros de entrada; a ser utilizado no print .dat ADICIONADO AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-    matrix _mmorig;             // Micromodelo original, não editável
-    matrix _mm;                 // Micromodelo de trabalho, editável
+    IntArray _mmorig;             // Micromodelo original, não editável
+    IntArray _mm;                 // Micromodelo de trabalho, editável
     
     int _NP;                    // Número de pixeis na parte porosa
     
@@ -121,7 +123,7 @@ class Young_Laplace_Method{
     
   
     // Matriz booleanas para dizer se os pixeis são
-    matrix_bool _trapped; // regiões presas na invasão ou não
+    BoolArray _trapped; // regiões presas na invasão ou não
   
   
     // Às vezes o fluido invasor não está só no reservatório, mas também
@@ -131,12 +133,12 @@ class Young_Laplace_Method{
   
     // Matrizes auxiliares do tamanho da imagem.
     // Não guardam nenhuma informação permanente
-    matrix _matrix1, _matrix2; // Matrizes usadas dentro da função calc
+    IntArray _matrix1, _matrix2; // Matrizes usadas dentro da função calc
   
     // Matrizes usadas EXCLUSIVAMENTE pela função euclidian_distance_transform
     // São passadas por referência para evitar o overhead de serem criadas 
     // e inicializadas toda hora.  
-    matrix _mx_edt1, _mx_edt2; 
+    IntArray _mx_edt1, _mx_edt2; 
     
     
     // Vetores usados EXCLUSIVAMENTE pela função Component Labeling
@@ -146,7 +148,7 @@ class Young_Laplace_Method{
   
     
     // Transformada de Distância Euclidiana (EDT)
-    matrix _edt;              // EDT da imagem original
+    IntArray _edt;              // EDT da imagem original
   };
   
   
@@ -165,7 +167,7 @@ class Young_Laplace_Method{
   //   Inicializa parâmetros da classe para a simulação.
   // RECEBE:
   //   config => Nome do arquivo de configurações
-  Young_Laplace_Method::Young_Laplace_Method( int argc, char *argv[] ){
+  Full_Morphology::Full_Morphology( int argc, char *argv[] ){
     // string saux;
 
 
@@ -176,50 +178,87 @@ class Young_Laplace_Method{
     Rcrit_new=0.f; 
     NULL_USE( Rcrit_new );
     // read the input database 
-		auto db = std::make_shared<Database>( filename );
-		auto domain_db = db->getDatabase( "Domain" );
-    auto ylm_db = db->getDatabase( "YLM" );
-
-    auto size = domain_db->getVector<int>( "N" );
+    auto db = std::make_shared<Database>(filename);
+    auto domain_db = db->getDatabase("Domain");
+    auto fm_db = db->getDatabase("FM");
+    
+    auto size = domain_db->getVector<int>("N");
     _nx = size[0];
     _ny = size[1];
     _nz = size[2];
-
-    auto VoxelLabels = domain_db->getVector<int>( "VoxelLabels" );
+    
+    auto VoxelLabels = domain_db->getVector<int>("VoxelLabels");
     _S = VoxelLabels[0];
     _O = VoxelLabels[1];
     _I = VoxelLabels[2];
-    _P = VoxelLabels[3];
-
-    auto READFILE = domain_db->getScalar<std::string>( "Filename" );
+    
+    auto READFILE = domain_db->getScalar<std::string>("Filename");
     MTcs mmfile(READFILE);
-
-    _outImgRoot = ylm_db->getScalar<std::string>( "ImageRoot" );
-    _outImgDir = ylm_db->getScalar<std::string>( "ImageDir" );
-    _whichImg = ylm_db->getScalar<std::string>( "WhichImage" );
+    
+    _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
+    _outImgDir = fm_db->getScalar<std::string>("ImageDir");
+    _whichImg = fm_db->getScalar<std::string>("WhichImage");
+    
     string memb = "none";
     MTcs has_membrane(memb);
-    _wall = false;
-    _wet = ylm_db->getScalar<bool>( "Wetting" );
-    _all_faces = ylm_db->getScalar<bool>( "Surround" );
-    _compressible = true;
-
-    if(!_all_faces){
-    auto direction = ylm_db->getVector<int>( "Direction" );
-    _iX=false; _iY=false; _iZ=false;
-    _iM = false; _iP = false;
-    if(direction[0] != 0 && direction[1] == 0 && direction[2] ==0 ){_iX=true;if(direction[0] > 0){_iP = true;}else {_iM = true;}}
-    else if(direction[1] != 0 && direction[0] == 0 && direction[2] ==0 ){_iY=true;if(direction[1] > 0){_iP = true;}else {_iM = true;}}
-    else if(direction[2] != 0 && direction[0] == 0 && direction[1] ==0 ){_iZ=true;if(direction[2] > 0){_iP = true;}else {_iM = true;}}
-    else {aborta("Unkonwn direction.");}
-    } else{ cout << "Surround selected. Direction is disconsidered. " << endl;
-
-    _iX=false; _iY=false; _iZ=true;
-    _iM = false; _iP = true;}
     
-    auto diameters = ylm_db->getVector<int>( "Diameters" );
-    for (int dd = diameters[0]; dd <= diameters[1]; dd+= diameters[2]){
-      _d.push_back(dd);
+    _wall = false;
+    _wet = false;
+    _all_faces = true;
+    _compressible = true;
+    
+    if (!_all_faces) {
+        auto direction = fm_db->getVector<int>("Direction");
+        _iX = false;
+        _iY = false;
+        _iZ = false;
+        _iM = false;
+        _iP = false;
+        
+        if (direction[0] != 0 && direction[1] == 0 && direction[2] == 0) {
+            _iX = true;
+            if (direction[0] > 0) {
+                _iP = true;
+            } else {
+                _iM = true;
+            }
+        } else if (direction[1] != 0 && direction[0] == 0 && direction[2] == 0) {
+            _iY = true;
+            if (direction[1] > 0) {
+                _iP = true;
+            } else {
+                _iM = true;
+            }
+        } else if (direction[2] != 0 && direction[0] == 0 && direction[1] == 0) {
+            _iZ = true;
+            if (direction[2] > 0) {
+                _iP = true;
+            } else {
+                _iM = true;
+            }
+        } else {
+            aborta("Unkonwn direction.");
+        }
+    } else {
+        cout << "Surround selected. Direction is disconsidered. " << endl;
+        _iX = false;
+        _iY = false;
+        _iZ = false;
+        _iM = false;
+        _iP = true;
+
+        if(_nz > 1)
+            _iZ = true;
+        else if(_ny > 1)
+            _iY = true;
+        else if(_nx > 1)
+            _iX = true;
+
+    }
+    
+    auto diameters = fm_db->getVector<int>("Diameters");
+    for (int dd = diameters[0]; dd <= diameters[1]; dd += diameters[2]) {
+        _d.push_back(dd);
     }
        // Ordena
        sort( _d.begin(), _d.end() );
@@ -368,17 +407,15 @@ class Young_Laplace_Method{
     // ---------------------------------------------------------------------------
     // As matrizes já foram inicializadas
     // Preciso redimensionar para não dar problema
-    matrix::extent_gen extents;
-    _mmorig.resize  ( extents[_nx][_ny][_nz] );
-    _mm.resize      ( extents[_nx][_ny][_nz] );
-    _edt.resize     ( extents[_nx][_ny][_nz] );
-    _matrix1.resize ( extents[_nx][_ny][_nz] );
-    _matrix2.resize ( extents[_nx][_ny][_nz] );
-    _mx_edt1.resize ( extents[_nx][_ny][_nz] );
-    _mx_edt2.resize ( extents[_nx][_ny][_nz] );
-  
-    matrix_bool::extent_gen extentsb;
-    _trapped.resize( extentsb[_nx][_ny][_nz] );
+      _mmorig.resize(_nx, _ny, _nz);
+      _mm.resize(_nx, _ny, _nz);
+      _edt.resize(_nx, _ny, _nz);
+      _matrix1.resize(_nx, _ny, _nz);
+      _matrix2.resize(_nx, _ny, _nz);
+      _mx_edt1.resize(_nx, _ny, _nz);
+      _mx_edt2.resize(_nx, _ny, _nz);
+      _trapped.resize(_nx, _ny, _nz);
+
   
   
     // Quando a conexão é só entre primeiros vizinhos, podemos ter metade dos
@@ -426,33 +463,33 @@ class Young_Laplace_Method{
     if( _iX ){
       for( int z=0; z<_nz; z++ ){
       for( int y=0; y<_ny; y++ ){
-        _trapped[_chamber_i][y][z] = false;
-        _trapped[_chamber_o][y][z] = false;
+        _trapped(_chamber_i,y,z) = false;
+        _trapped(_chamber_o,y,z) = false;
         
-        _mm[_chamber_i][y][z] =_I;
-        _mm[_chamber_o][y][z] =_O;
+        _mm(_chamber_i,y,z) =_I;
+        _mm(_chamber_o,y,z) =_O;
       }}
       
     // Invasão em y    
     }else if( _iY ){
       for( int z=0; z<_nz; z++ ){
       for( int x=0; x<_nx; x++ ){
-        _trapped[x][_chamber_i][z] = false;
-        _trapped[x][_chamber_o][z] = false;
+        _trapped(x,_chamber_i,z) = false;
+        _trapped(x,_chamber_o,z) = false;
         
-        _mm[x][_chamber_i][z] =_I;
-        _mm[x][_chamber_o][z] =_O;
+        _mm(x,_chamber_i,z) =_I;
+        _mm(x,_chamber_o,z) =_O;
       }}
       
     // Invasão em z
     }else if( _iZ ){
       for( int y=0; y<_ny; y++ ){
       for( int x=0; x<_nx; x++ ){
-        _trapped[x][y][_chamber_i] = false;
-        _trapped[x][y][_chamber_o] = false;
+        _trapped(x,y,_chamber_i) = false;
+        _trapped(x,y,_chamber_o) = false;
         
-        _mm[x][y][_chamber_i] = _I;
-        _mm[x][y][_chamber_o] = _O;
+        _mm(x,y,_chamber_i) = _I;
+        _mm(x,y,_chamber_o) = _O;
       }}
       
     } }
@@ -479,7 +516,7 @@ class Young_Laplace_Method{
     for( int y=y0; y<yM; y++ ){
     for( int x=x0; x<xM; x++ ){
   
-      _trapped[x][y][z] = false;
+      _trapped(x,y,z) = false;
       FRAW >> auxraw;
       pc = static_cast<int>( auxraw );
       
@@ -490,7 +527,7 @@ class Young_Laplace_Method{
         aborta("Cor desconhecida em (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
       }
       
-      _mm[x][y][z]     = pc;
+      _mm(x,y,z)     = pc;
     }
     }}
   
@@ -500,18 +537,20 @@ class Young_Laplace_Method{
     for( int z=0; z<_nz; z++ ){
     for( int y=0; y<_ny; y++ ){
     for( int x=0; x<_nx; x++ ){
-      iaux = _mm[x][y][z];
+      iaux = _mm(x,y,z);
       if( iaux!=_S ) _NP++;
-      _mmorig[x][y][z] = iaux;
+      _mmorig(x,y,z) = iaux;
     }}}  
   
+    int discount = _nx * _ny * _nz - dimx * dimy * dimz;
+
     if(!_all_faces){
     // Desconta o tamanho dos reservatórios ...
     if     ( _iX ){ _NP -= 2*_ny*_nz;  }
     else if( _iY ){ _NP -= 2*_nx*_nz;  }
     else if( _iZ ){ _NP -= 2*_nx*_ny;  } }
     else{
-      _NP = _NP - 2*(_nx*_ny+_nx*_nz+_ny*_nz) + (4*(_nx+_ny+_nz) - 8);
+      _NP = _NP - discount;
     }
   
   
@@ -627,7 +666,7 @@ class Young_Laplace_Method{
   //   Retorna o valor de um diâmetro para um dado passo
   // RECEBE:
   //   step => Número do passo atual
-  int Young_Laplace_Method::diameter( MTci &step ){
+  int Full_Morphology::diameter( MTci &step ){
     if( step<0 || step>=_d.size() )
       aborta( "Valor inválido para o passo." );
     return _d[step];
@@ -653,7 +692,7 @@ class Young_Laplace_Method{
   // 
   // RECEBE:
   //   step => Número do passo para calcular
-  void Young_Laplace_Method::calc( MTci &step ){
+  void Full_Morphology::calc( MTci &step ){
     int iaux;
     
     
@@ -729,25 +768,25 @@ class Young_Laplace_Method{
       // 
       //   Guardo a informação desses pixeis a mais colocados na erosão em
       // matrix2, para poder tirá-los depois
-      _matrix2[x][y][z] = F;
+      _matrix2(x,y,z) = F;
       
       // A região erodida é só aquela que EDT >= D24
-      if( _edt[x][y][z]>=D24 ){
-        _matrix1[x][y][z] = F;
+      if( _edt(x,y,z)>=D24 ){
+        _matrix1(x,y,z) = F;
         
       
       }else{
-         _matrix1[x][y][z] = B;
+         _matrix1(x,y,z) = B;
         
   
         // Aqui, tudo deveria ser background, mas tenho o reservatório 
         // para incluir, por causa do que falei acima.
         // Mas só está funcionando para líquidos não molhantes por enquanto!
-        if( !_wet && _mmorig[x][y][z]==_I ){
-           _matrix1[x][y][z] = F;
+        if( !_wet && _mmorig(x,y,z)==_I ){
+           _matrix1(x,y,z) = F;
            
            // Significará que foi colocado por ser do reservatório    
-           _matrix2[x][y][z] = B;  
+           _matrix2(x,y,z) = B;  
         }
       }
       
@@ -760,7 +799,7 @@ class Young_Laplace_Method{
       // com um aumento do raio. Isso acontece por que as esferas não são
       // realmente esféricas.
       if( _wet )
-        _mm[x][y][z] = _mmorig[x][y][z];
+        _mm(x,y,z) = _mmorig(x,y,z);
       
     }}}
     tt_loop1 = _ttime() - tt_loop1;
@@ -783,7 +822,7 @@ class Young_Laplace_Method{
       component_labeling( _matrix1, F, B, _next, _tail, _rtable );
     
       // Pego o label do reservatório  
-      chamber_label =  _matrix1[xaux][yaux][zaux];
+      chamber_label =  _matrix1(xaux,yaux,zaux);
       
       // Tudo que não for conectado ao reservatório é colocado como background
       // Os pixeis que eram só do reservatório, não da região erodida, também
@@ -792,12 +831,12 @@ class Young_Laplace_Method{
       for( int x=0; x<_nx; x++ ){
       for( int y=0; y<_ny; y++ ){
       for( int z=0; z<_nz; z++ ){
-        if( _matrix1[x][y][z] == chamber_label ){
+        if( _matrix1(x,y,z) == chamber_label ){
     
-          _matrix1[x][y][z] = _matrix2[x][y][z];
+          _matrix1(x,y,z) = _matrix2(x,y,z);
           
         }else{
-          _matrix1[x][y][z] = B;
+          _matrix1(x,y,z) = B;
         }
       }}}  
     }
@@ -837,15 +876,15 @@ class Young_Laplace_Method{
       // Erosão do EDT negativo: se _matrix2 < D24, é background
       // Portanto, é uma região ocupada por fluido invasor
       // As outras regiões, se não for sólido, são ocupadas pelo fluido expulso
-      if( _matrix2[x][y][z] < D24 ){
-        _mm[x][y][z] = _I;
+      if( _matrix2(x,y,z) < D24 ){
+        _mm(x,y,z) = _I;
       }else{
-       if( _mm[x][y][z] == _P )
-         _mm[x][y][z] = _O;          
+       if( _mm(x,y,z) == _P )
+         _mm(x,y,z) = _O;          
       }
      
       // Prepara para encontrar componentes desconexas
-      _matrix1[x][y][z] = (_mm[x][y][z]==_I)? F:B;
+      _matrix1(x,y,z) = (_mm(x,y,z)==_I)? F:B;
     }}}
     tt_loop2 = _ttime() - tt_loop2;
     
@@ -858,7 +897,7 @@ class Young_Laplace_Method{
     // component_labeling( _matrix1, F, B, _next, _tail, _rtable, _nthreads );
     component_labeling( _matrix1, F, B, _next, _tail, _rtable );
     tt_cl1 = _ttime() - tt_cl1;
-    chamber_label =  _matrix1[xaux][yaux][zaux];
+    chamber_label =  _matrix1(xaux,yaux,zaux);
   
   
   
@@ -891,24 +930,24 @@ class Young_Laplace_Method{
       // para fazer o Component Labeling
       // A região L é somente a linha do reservatório do fluido invasor
       bool rG=false;
-      if     ( _iX ){ rG  = (_mm[x][y][z]==_I || x==_chamber_i); }
-      else if( _iY ){ rG  = (_mm[x][y][z]==_I || y==_chamber_i); }
-      else if( _iZ ){ rG  = (_mm[x][y][z]==_I || z==_chamber_i); }
+      if     ( _iX ){ rG  = (_mm(x,y,z)==_I || x==_chamber_i); }
+      else if( _iY ){ rG  = (_mm(x,y,z)==_I || y==_chamber_i); }
+      else if( _iZ ){ rG  = (_mm(x,y,z)==_I || z==_chamber_i); }
   
   
       // Operador K, gero a região Omega   eq.11
       // Não basta ser da região G, é preciso que esteja conectado ao reserv.
       // Ou seja, precisa ter o mesmo label que os pixeis do reservatório
       bool rO=false;
-      if( rG && _matrix1[x][y][z] == chamber_label )
+      if( rG && _matrix1(x,y,z) == chamber_label )
         rO = true;
   
       // Coloco a cor certa, de acordo com o tipo de pixel
       if( rO ){ 
-        _mm[x][y][z] = _I;
+        _mm(x,y,z) = _I;
       }else{
-        if( _mm[x][y][z] != _S )
-          _mm[x][y][z] = _O;
+        if( _mmorig(x,y,z) != _S )
+          if (rO) { _mm(x, y, z) = _I; } else { _mm(x, y, z) = _O; }
       }
         
         
@@ -920,7 +959,7 @@ class Young_Laplace_Method{
         if( rG ) iaux       = 1;  // pixel é só de G
         if( rO ) iaux       = 2;  // pixel é só de O
         if( rG && rO ) iaux = 3;  // pixel é de G e O
-        _matrix2[x][y][z] = iaux;
+        _matrix2(x,y,z) = iaux;
       }
       
     }}}
@@ -950,18 +989,18 @@ class Young_Laplace_Method{
       for( int z=0; z<_nz; z++ ){
   
         // Pixel está em O1 e G?
-        iaux = _matrix2[x][y][z];
+        iaux = _matrix2(x,y,z);
         MTcb rG = iaux==1 || iaux==3;
         MTcb rO = iaux==2 || iaux==3;
         
         // Região Gc: F - G   eq.7
         // Ou seja, o pixel está em F mas não está em G
-        MTcb rGc = _mm[x][y][z]!=_S &&  !rG;
+        MTcb rGc = _mm(x,y,z)!=_S &&  !rG;
         
         // Nova região é composta por  Gc U O1
         bool rX = false;
         if( rGc || rO ) rX=true;
-        _matrix1[x][y][z] = (rX)? F:B;
+        _matrix1(x,y,z) = (rX)? F:B;
       }}}
       tt_loop1w = _ttime() - tt_loop1w;
         
@@ -976,7 +1015,7 @@ class Young_Laplace_Method{
       if     ( _iX ){ xaux=_chamber_i; }
       else if( _iY ){ yaux=_chamber_i; }
       else if( _iZ ){ zaux=_chamber_i; }
-      chamber_label = _matrix1[xaux][yaux][zaux];
+      chamber_label = _matrix1(xaux,yaux,zaux);
   
   
       //--------------------------------------------------------------------------
@@ -996,15 +1035,15 @@ class Young_Laplace_Method{
         // Não basta ser da região X, é preciso que esteja conectado ao reserv.
         // Ou seja, precisa ter o mesmo label que os pixeis do reservatório
         bool rO2=false;
-        if( _matrix1[x][y][z] == chamber_label )
+        if( _matrix1(x,y,z) == chamber_label )
           rO2 = true;
     
         // Coloco a cor certa, de acordo com o tipo de pixel
         if( rO2 ){ 
-          _mm[x][y][z] = _I;
+          _mm(x,y,z) = _I;
         }else{
-          if( _mm[x][y][z] != _S )
-            _mm[x][y][z] = _O;
+          if( _mm(x,y,z) != _S )
+            _mm(x,y,z) = _O;
         }
       }}}
       tt_loop2w = _ttime() - tt_loop2w;
@@ -1026,8 +1065,8 @@ class Young_Laplace_Method{
       // #pragma omp parallel for num_threads (_nthreads)
       for( int y=0; y<_ny; y++ ){
       for( int z=0; z<_nz; z++ ){
-        _mm[_chamber_i][y][z] = _I;
-        _mm[_chamber_o][y][z] = _O;
+        _mm(_chamber_i,y,z) = _I;
+        _mm(_chamber_o,y,z) = _O;
       }}
       
       x0=1;
@@ -1038,8 +1077,8 @@ class Young_Laplace_Method{
       // #pragma omp parallel for num_threads (_nthreads)
       for( int x=0; x<_nx; x++ ){
       for( int z=0; z<_nz; z++ ){
-        _mm[x][_chamber_i][z] = _I;
-        _mm[x][_chamber_o][z] = _O;
+        _mm(x,_chamber_i,z) = _I;
+        _mm(x,_chamber_o,z) = _O;
       }}
       
       y0=1;
@@ -1050,8 +1089,8 @@ class Young_Laplace_Method{
       // #pragma omp parallel for num_threads (_nthreads)
       for( int x=0; x<_nx; x++ ){
       for( int y=0; y<_ny; y++ ){
-        _mm[x][y][_chamber_i] = _I;
-        _mm[x][y][_chamber_o] = _O;
+        _mm(x,y,_chamber_i) = _I;
+        _mm(x,y,_chamber_o)= _O;
       }}
       
       z0=1;
@@ -1075,8 +1114,8 @@ class Young_Laplace_Method{
       for( int x=x0; x<xM; x++ ){
       for( int y=y0; y<yM; y++ ){
       for( int z=z0; z<zM; z++ ){
-        if( _mmorig[x][y][z]==_I )
-          _mm[x][y][z] = _I;
+        if( _mmorig(x,y,z)==_I )
+          _mm(x,y,z) = _I;
       }}}
     }
     tt_loop5 = _ttime() - tt_loop5;      
@@ -1108,10 +1147,10 @@ class Young_Laplace_Method{
         // Se o pixel já estava preso no passo anterior, marco ele preso nesse
         // também. É que parte das regiões presas no passo anterior foram
         // invadidas nesse. Preciso "recuperar" esses pixeis como sendo presos.
-        if( _trapped[x][y][z] )
-          _mm[x][y][z] = _O;
+        if( _trapped(x,y,z) )
+          _mm(x,y,z) = _O;
   
-        _matrix1[x][y][z] = (_mm[x][y][z]==_O)? F:B;
+        _matrix1(x,y,z) = (_mm(x,y,z)==_O)? F:B;
       }}}
       tt_loop1c = _ttime() - tt_loop1c;      
       
@@ -1129,7 +1168,7 @@ class Young_Laplace_Method{
       if     ( _iX ){ xaux=_chamber_o; }
       else if( _iY ){ yaux=_chamber_o; }
       else if( _iZ ){ zaux=_chamber_o; }
-      chamber_label = _matrix1[xaux][yaux][zaux];
+      chamber_label = _matrix1(xaux,yaux,zaux);
       
       
       //--------------------------------------------------------------------------
@@ -1153,8 +1192,8 @@ class Young_Laplace_Method{
       for( int z=0; z<_nz; z++ ){    
   
         // É uma região presa?
-        if( _mm[x][y][z]==_O &&  _matrix1[x][y][z] != chamber_label )
-          _trapped[x][y][z]=true;
+        if( _mm(x,y,z)==_O &&  _matrix1(x,y,z) != chamber_label )
+          _trapped(x,y,z)=true;
       }}}
       tt_loop2c = _ttime() - tt_loop2c;
     }
@@ -1209,7 +1248,11 @@ class Young_Laplace_Method{
     if     ( _iX ){ x0=1; xM = _nx-1; }
     else if( _iY ){ y0=1; yM = _ny-1; }
     else if( _iZ ){ z0=1; zM = _nz-1; } }
-    else{ x0=1; xM = _nx-1; y0=1; yM = _ny-1; z0=1; zM = _nz-1;}
+    else{
+      if (dimx > 1){x0=1; xM = _nx-1;}
+      if (dimy > 1){y0=1; yM = _ny-1;}
+      if (dimz > 1){z0=1; zM = _nz-1;}
+      }
     
   
     //aux_raw = static_cast<uint8_t>(iaux);
@@ -1224,7 +1267,7 @@ class Young_Laplace_Method{
     for( int y=y0; y<yM; y++ ){
     for( int x=x0; x<xM; x++ ){    
       
-      iaux = _mm[x][y][z];
+      iaux = _mm(x,y,z);
       if     ( iaux==_I ) Ninlet++;
       else if( iaux==_O ) Noutlet++;
 
@@ -1287,5 +1330,4 @@ class Young_Laplace_Method{
   
   
   
-  #endif // YOUNG_LAPLACE_METHOD_HPP
-  
+#endif // FULL_MORPHOLOGY_HPP

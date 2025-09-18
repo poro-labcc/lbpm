@@ -18,15 +18,19 @@ using namespace std;
 //#include "true_time.hpp"
 
 
-// Para matrizes 3D com Boost
-#include "boost/multi_array.hpp"
-using namespace boost;
-typedef multi_array<int , 3> matrix;
+// // Para matrizes 3D com Boost
+// #include "boost/multi_array.hpp"
+// using namespace boost;
+// typedef multi_array<int , 3> matrix;
+
+#include "../common/Array.h"
+typedef Array<int> IntArray;
+typedef Array<bool> BoolArray;
 
 
 
-void component_labeling( matrix &, MTci &, MTci &, MTvi &, 
-                         MTvi &, MTvi &, MTci & );
+void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next, 
+                         MTvi &tail, MTvi &rtable );
 void merge( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
 void resolve( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
 
@@ -48,14 +52,14 @@ void resolve( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
 //   F, B         => Número para Foreground e Background
 //   next, tail, rtable => Vetores para trabalhar informações das equivalências
 //   nthreads     => Número de threads para usar
-void component_labeling( matrix &IMG, MTci &F, MTci &B, MTvi &next, 
+void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next, 
                          MTvi &tail, MTvi &rtable ){
 
 
   // Tamanho da imagem  
-  MTci nx = IMG.shape()[0];
-  MTci ny = IMG.shape()[1];
-  MTci nz = IMG.shape()[2];
+  const int nx = IMG.size(0);
+  const int ny = IMG.size(1);
+  const int nz = IMG.size(2);
  
   // Auxiliares
   int lx=0, nl=1;
@@ -66,14 +70,14 @@ void component_labeling( matrix &IMG, MTci &F, MTci &B, MTvi &next,
   for( int x=0; x<nx; x++ ){
   for( int y=0; y<ny; y++ ){
   for( int z=0; z<nz; z++ ){
-    if( IMG[x][y][z]==F ){
+    if( IMG(x,y,z)==F ){
       
       
       // Pega o label dos vizinhos se eles estão dentro da imagem.
       // Senão, diz que eles são background
-      MTci lq = (x>0)?  IMG[x-1][y  ][z  ]:B;
-      MTci lp = (y>0)?  IMG[x  ][y-1][z  ]:B;
-      MTci lz = (z>0)?  IMG[x  ][y  ][z-1]:B;
+      MTci lq = (x>0)?  IMG(x-1,y,z):B;
+      MTci lp = (y>0)?  IMG(x,y-1,z):B;
+      MTci lz = (z>0)?  IMG(x,y,z-1):B;
 
 
       // Cria um vetor com os labels únicos diferentes de background
@@ -155,7 +159,7 @@ void component_labeling( matrix &IMG, MTci &F, MTci &B, MTvi &next,
           break;
       }
       
-      IMG[x][y][z] = lx;
+      IMG(x,y,z) = lx;
       
             
     }
@@ -168,8 +172,8 @@ void component_labeling( matrix &IMG, MTci &F, MTci &B, MTvi &next,
   for( int x=0; x<nx; x++ ){
   for( int y=0; y<ny; y++ ){
   for( int z=0; z<nz; z++ ){
-    if( IMG[x][y][z]!=B )
-      IMG[x][y][z] = rtable[ IMG[x][y][z] ];
+    if( IMG(x,y,z)!=B )
+      IMG(x,y,z) = rtable[ IMG(x,y,z) ];
   }}}
 
 

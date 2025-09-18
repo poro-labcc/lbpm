@@ -12,6 +12,8 @@
 //A.Z. - 12/13 => Criacao
 //       02/14 => Adaptações para paralelização
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
+
+
 #include <iomanip>
 #include <iostream>
 using namespace std;
@@ -46,7 +48,7 @@ int main( int argc, char *argv[] ){
   if( argc!=2 ) aborta("Wrong number of parameters.");
 
   // Instancia e inicializa um objeto Full Morphology
-  Young_Laplace_Method ylm( argc, argv );
+  Full_Morphology fm( argc, argv );
 
   // Initialize MPI
   // Utilities::startup( argc, argv );
@@ -124,13 +126,13 @@ int main( int argc, char *argv[] ){
   // }
 
   // Itera para cada diâmetro
-  MTci nsteps = ylm.Ndiam();
+  MTci nsteps = fm.Ndiam();
   for( int step=0; step<nsteps; step++ ){
     
-    MTci d = ylm.diameter(step);
-    cout << "Passo " << step << ", D = " << d << " px." << endl;
+    MTci d = fm.diameter(step);
+    cout << "Step " << step << ", D = " << d << " px." << endl;
     
-    ylm.calc(step);
+    fm.calc(step);
     
   }
 
