@@ -149,7 +149,7 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
           
           // Registra equivalência 2
           //dual[0] = uniq_labels[1];
-          //dual[1] = uniq_labels[2];
+          //dual[1] = uniq_labels[2]; 
           //eq.push_back( dual );
           resolve( uniq_labels[0], uniq_labels[1], next, tail, rtable );
           resolve( uniq_labels[0], uniq_labels[2], next, tail, rtable );
