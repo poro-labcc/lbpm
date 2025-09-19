@@ -118,8 +118,8 @@ class Full_Morphology{
     // Cores para as várias regiões da imagem.
     int _I,   // I -> Fluido que está entrado
         _O,   // O -> Fluido que está saindo
-        _S,   // S -> Parte sólida
-        _P;   // P -> Poros: estão preenchidos com O e serão invadidos por I
+        _S;   // S -> Parte sólida
+        // _P;   // P -> Poros: estão preenchidos com O e serão invadidos por I
     
   
     // Matriz booleanas para dizer se os pixeis são
@@ -431,23 +431,23 @@ class Full_Morphology{
   cout << _nx << _ny << _nz << endl;
   
   
-    // ---------------------------------------------------------------------------
-    // Coloco a membrana e depois a parede
-    if( _memb >0 ){
-      //MTci fill = (_wet)? _I:_P;
-      MTci fill = _P;
+    // // ---------------------------------------------------------------------------
+    // // Coloco a membrana e depois a parede
+    // if( _memb >0 ){
+    //   //MTci fill = (_wet)? _I:_P;
+    //   MTci fill = _P;
       
-      if     ( _iX ){ membrane( _mm, _S, fill, _memb, "x" ); }
-      else if( _iY ){ membrane( _mm, _S, fill, _memb, "y" ); }
-      else if( _iZ ){ membrane( _mm, _S, fill, _memb, "z" ); }    
-    }
+    //   if     ( _iX ){ membrane( _mm, _S, fill, _memb, "x" ); }
+    //   else if( _iY ){ membrane( _mm, _S, fill, _memb, "y" ); }
+    //   else if( _iZ ){ membrane( _mm, _S, fill, _memb, "z" ); }    
+    // }
 
-    if( _wall ){
-      if     ( _iX ){ walls( _mm, _S, "x" ); }
-      else if( _iY ){ walls( _mm, _S, "y" ); }
-      else if( _iZ ){ walls( _mm, _S, "z" ); }
-    }
-    // ---------------------------------------------------------------------------
+    // if( _wall ){
+    //   if     ( _iX ){ walls( _mm, _S, "x" ); }
+    //   else if( _iY ){ walls( _mm, _S, "y" ); }
+    //   else if( _iZ ){ walls( _mm, _S, "z" ); }
+    // }
+    // // ---------------------------------------------------------------------------
   
     
   
@@ -523,7 +523,7 @@ class Full_Morphology{
       if( pc == _I )  has_out_inlet=true;
       if( pc != _S )  _NP++;
   
-      if( pc!=_I  &&  pc!=_S  &&  pc!=_P  &&  pc!=_O ){  
+      if( pc!=_I  &&  pc!=_S  &&  pc!=_O ){  
         aborta("Cor desconhecida em (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
       }
       
@@ -878,9 +878,6 @@ class Full_Morphology{
       // As outras regiões, se não for sólido, são ocupadas pelo fluido expulso
       if( _matrix2(x,y,z) < D24 ){
         _mm(x,y,z) = _I;
-      }else{
-       if( _mm(x,y,z) == _P )
-         _mm(x,y,z) = _O;          
       }
      
       // Prepara para encontrar componentes desconexas
@@ -946,8 +943,8 @@ class Full_Morphology{
       if( rO ){ 
         _mm(x,y,z) = _I;
       }else{
-        if( _mmorig(x,y,z) != _S )
-          if (rO) { _mm(x, y, z) = _I; } else { _mm(x, y, z) = _O; }
+        if( _mm(x,y,z) != _S )
+          _mm(x,y,z) = _O;
       }
         
         
