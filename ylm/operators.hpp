@@ -1,6 +1,6 @@
 /**
  * 
- * Biblioteca usada para calcular a Transformada de Distância Euclidiana
+ * Library used to calculate EDT
  * 
 **/
 
@@ -54,7 +54,7 @@ long F(int x, int i, long gi2)
  * @param u 
  * @param gi2 
  * @param gu2 
- * @return The abscissa of the intersection point between two parabolas
+ * @return The absciss of the intersection point between two parabolas
  **************************************************/
 long Sep(int i, int u, long gi2, long gu2) {
   return intdivint(sum( sum((long) (u*u - i*i),gu2), opp(gi2) ), 2*(u-i));

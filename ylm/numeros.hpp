@@ -1,10 +1,7 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
-// Biblioteca contendo varias funcoes para manipulacoes sobre numeros.
+// Library with many functions to manipulate numbers.
 //________________________________________________________
-//A.Z. - 03/05 => Criacao
-//       11/05 => Tirei a funcao itos
-//       01/06 => Usando a classe stringstream fiz a funcao decompoe ser mais
-//                de 2 vezes mais rapida. Sobrecarreguei o nome para ntos.
+//A.Z. - 03/05 => Creation
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef NUMEROS_H
 #define NUMEROS_H
@@ -27,7 +24,7 @@ void binario(int,int,deque<int> &);
 
 
 //==============================================================================
-// Converte um numero qualquer para string
+// Converts a number into a string
 template < class N >
 inline string ntos(const N &n){
   ostringstream s;
@@ -39,8 +36,8 @@ inline string ntos(const N &n){
 
 
 //==============================================================================
-// Dado um numero n, decompoe ele no numero de casas do numero N:
-// Exemplo ( N=5000 -> 4 casas )
+// Given a number n, formats it with the number of figures of N:
+// Example ( N=5000 -> 4 figures )
 // 1    --> 0001
 // 25   --> 0025
 // 125  --> 0125
@@ -48,17 +45,17 @@ inline string ntos(const N &n){
 template < class N >
 inline string ntos(const N&model, const N &n){
 
-  // Numero de casas do numero modelo
+  // Number of model number figures
   stringstream smodel;
   smodel << model;
   const int length = smodel.str().length();
 
-  // Formata a saida
+  // Formats output
   stringstream sn;
   sn.width(length);
   sn.fill('0');
 
-  // Gera o numero
+  // Generates number
   sn << n;
   return sn.str();
 }
@@ -67,29 +64,29 @@ inline string ntos(const N&model, const N &n){
 
 
 //==============================================================================
-// Dado um numero n, decompoe ele em um numero binario, e coloca ele em N casas
-// Exemplo: N = 5
+// Given a number n, formats it to binary with N figures
+// Example: N = 5
 // n=0 --> 0 0 0 0 0
 // n=1 --> 0 0 0 0 1
 // n=2 --> 0 0 0 1 0
 void binario(int n, int N, deque<int> &bin){
   bin.clear(); 
 
-  while( n>0 ){        // Pega o numero em formato binario
+  while( n>0 ){        
     int mod = n%2;
     n -= mod;
     n /= 2;
     bin.push_front(mod);
   }
 
-  int size=bin.size(); // Preenche o resto
+  int size=bin.size(); 
   for( int i=size; i<N; i++ ){
     bin.push_front(0);
   }
 
-  if(size>N){          // Se nao couber no espaco
-    cerr << "\n\aNao eh possivel escrever o numero em formato binario contendo"
-	 << " soh " << N << " casas! ABORTANDO ..." << endl;
+  if(size>N){        
+    cerr << "\n\aIt is impossible to write the number in binary with only"
+	  << N << " figures! ABORTING ..." << endl;
     exit(1);
   }
 }

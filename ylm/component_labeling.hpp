@@ -1,27 +1,19 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // 
-//  Função que faz o Component Labeling de He, Chao & Suzuki, 2011.
+//  Function that performs the Component Labeling form He, Chao & Suzuki, 2011.
 //________________________________________________________
-//A.Z. - 03/14 => Criação
+//A.Z. - 03/14 => Creation
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef COMPONENT_LABELING
 #define COMPONENT_LABELING
 
 
-// Padrão do C++
 #include <iostream>
 using namespace std;
 
 
-// Minhas bibliotecas
 #include "meusTipos.hpp"
-//#include "true_time.hpp"
 
-
-// // Para matrizes 3D com Boost
-// #include "boost/multi_array.hpp"
-// using namespace boost;
-// typedef multi_array<int , 3> matrix;
 
 #include "../common/Array.h"
 typedef Array<int> IntArray;
@@ -40,28 +32,22 @@ void resolve( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
 
 
 //------------------------------------------------------------------------------
-// DESCRICAO:
-//   Identifica as componentes desconexas de uma imagem através do algoritmo
-//  de He, Chao & Suzuki, 2011.
+// DESCRIPTION:
+//   Identifies disconnected components of an image through He, Chao & Suzuki, 2011 algorithm.
 //
-// ATENCAO:
-//   IMG é alterada para conter os labels das regiões desconexas
-//
-// RECEBE:
-//   img          => Imagem para encontrar as regiões desconexas
-//   F, B         => Número para Foreground e Background
-//   next, tail, rtable => Vetores para trabalhar informações das equivalências
-//   nthreads     => Número de threads para usar
+// INPUTS:
+//   img          => geometry to find disconnected regions
+//   F, B         => Foreground and Background
+//   next, tail, rtable => vector to work with equivalences information
+//------------------------------------------------------------------------------
 void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next, 
                          MTvi &tail, MTvi &rtable ){
 
-
-  // Tamanho da imagem  
+  
   const int nx = IMG.size(0);
   const int ny = IMG.size(1);
   const int nz = IMG.size(2);
  
-  // Auxiliares
   int lx=0, nl=1;
   MTvi uniq_labels(3);
   int nuniq;
@@ -72,18 +58,10 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
   for( int z=0; z<nz; z++ ){
     if( IMG(x,y,z)==F ){
       
-      
-      // Pega o label dos vizinhos se eles estão dentro da imagem.
-      // Senão, diz que eles são background
       MTci lq = (x>0)?  IMG(x-1,y,z):B;
       MTci lp = (y>0)?  IMG(x,y-1,z):B;
       MTci lz = (z>0)?  IMG(x,y,z-1):B;
 
-
-      // Cria um vetor com os labels únicos diferentes de background
-      // Poderia montar um esquema mais simples, mas quero aproveitar o vetor
-      // Senão gasto muito tempo criando e apagando um vetor sempre do mesmo
-      // tamanho!
       nuniq=0;
       if( lp!=B ){
         uniq_labels[nuniq] = lp;
@@ -99,12 +77,10 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
       }
 
 
-      // Registra equivalências
       switch( nuniq ){
     
         // ---------------------------------------------------------------------
-        // Caso 1: Todos os vizinhos são background
-        // Cria-se um novo label
+        // Case 0: All neighbors are background
         case 0:
           nl++;
           lx = nl;
@@ -117,21 +93,16 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
       
       
         // ---------------------------------------------------------------------
-        // Caso 2: Só há um único label entre os vizinhos
-        // Pega este label
+        // Case 1: Only one label among the neighbors
         case 1:
           lx=uniq_labels[0];
           break;
 
       
         // ---------------------------------------------------------------------
-        // Caso 3: Há dois labels diferentes entre os vizinhos
+        // Case 2: There are two different labels among the neighbors
         case 2:
-          
-          // Registra equivalência
-          //dual[0] = uniq_labels[0];
-          //dual[1] = uniq_labels[1];
-          //eq.push_back( dual );
+
           resolve( uniq_labels[0], uniq_labels[1], next, tail, rtable );
           
           lx = min( uniq_labels[0], uniq_labels[1] );
@@ -139,18 +110,9 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
 
       
         // ---------------------------------------------------------------------
-        // Caso 4: Há três labels diferentes entre os vizinhos
+        // Case 3: There are three different labels among the neighbors
         case 3:
-          
-          // Registra equivalência 1
-          //dual[0] = uniq_labels[0];
-          //dual[1] = uniq_labels[1];
-          //eq.push_back( dual );
-          
-          // Registra equivalência 2
-          //dual[0] = uniq_labels[1];
-          //dual[1] = uniq_labels[2]; 
-          //eq.push_back( dual );
+
           resolve( uniq_labels[0], uniq_labels[1], next, tail, rtable );
           resolve( uniq_labels[0], uniq_labels[2], next, tail, rtable );
           resolve( uniq_labels[1], uniq_labels[2], next, tail, rtable );
@@ -168,7 +130,7 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
 
 
 
-  // Troco os índices velhos pelos equivalentes
+  // Changes old indexes by equivalent ones
   for( int x=0; x<nx; x++ ){
   for( int y=0; y<ny; y++ ){
   for( int z=0; z<nz; z++ ){
@@ -181,7 +143,7 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
 
 
 
-// He, Chao, Suzuki, 2008, pág 752
+// He, Chao, Suzuki, 2008, page 752
 void merge( MTci &u, MTci &v, MTvi &next, MTvi &tail, MTvi &rtable ){
   for( int i=v; i!=-1;  ){
     rtable[i] = u;
@@ -191,7 +153,7 @@ void merge( MTci &u, MTci &v, MTvi &next, MTvi &tail, MTvi &rtable ){
   tail[u] = tail[v];
 }
 
-// He, Chao, Suzuki, 2008, pág 752
+// He, Chao, Suzuki, 2008, page 752
 void resolve( MTci &x, MTci &y, MTvi &next, MTvi &tail, MTvi &rtable ){
   MTci u = rtable[x];
   MTci v = rtable[y];

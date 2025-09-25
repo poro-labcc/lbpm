@@ -1,17 +1,9 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 //
-//   Fornece abreviacoes uteis para os tipos mais usados
-//   A regra de nomenclatura eh bem clara!
+//   Most used types
 //
-// PARA O EMACS:
-//   Nao esqueca de alterar o arquivo emacs-lisp/font-lock.el para 
-// incluir novos tipos. (Para achar o lugar, busque por MTci )
-//   Para verificar se esta funcionando, basta fechar e reabrir o emacs com este
-// arquivo. Se os novos tipos tiverem a mesma cor dos antigos, eh porque esta
-// funcionando.
 //________________________________________________________
-//A.Z. - 07/05 => Criacao
-//       12/05 => O comentario sobre o emacs.
+//A.Z. - 07/05 => Creation
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef MEUSTIPOS_H
 #define MEUSTIPOS_H

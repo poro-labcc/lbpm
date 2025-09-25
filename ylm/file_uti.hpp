@@ -1,11 +1,12 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 //
 // Funções para ajudar na manipulação de arquivos
+// Functions to help manipulate files
 //________________________________________________________
-//A.Z. - 03/05 => Criacao
-//       10/05 => Uso das bibliotecas aborta.h e meusTipos.h
-//       01/07 => Funcao outputFileHead
-//       03/08 => Funcao outputFileHead imprime data tambem
+//A.Z. - 03/05 => Creation
+//       10/05 => Uses  aborta.h and meusTipos.h libraries
+//       01/07 => Function outputFileHead
+//       03/08 => Function outputFileHead also prints date
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef FILE_UTI_H
 #define FILE_UTI_H
@@ -29,10 +30,10 @@ void outputFileHead( MTci &, char **, ofstream &, MTcvs & );
 
 
 //------------------------------------------------------------------------------
-// DESCRICAO:
-//   Cria um diretório
-// RECEBE:
-//   folder => Nome do diretório
+// DESCRIPTION:
+//   Creates a folder
+// INPUT:
+//   folder => folder name
 void mymkdir( MTcs &folder ){
   MTcs mkdir( "mkdir -p " + folder );
   int lixo = system( mkdir.c_str() );
@@ -43,47 +44,43 @@ void mymkdir( MTcs &folder ){
 
 
 //------------------------------------------------------------------------------
-// DESCRICAO:
-// Verifica se um arquivo foi aberto corretamente
+// DESCRIPTION:
+// Verifies if a file was open correctly
 template < class T >
 inline void abriu( T &obj, MTcs &nome ){
   if( !obj.is_open() )
-    aborta("Nao foi possivel abrir/criar o arquivo "+nome);
+    aborta("It was impossible to open/create the file "+nome);
 }
 
 
 
 
 //------------------------------------------------------------------------------
-// DESCRICAO:
-// Recebe uma string que representa o nome de um arquivo e quebra ela para
-//  descobrir qual eh o caminho ate o arquivo.
-// Atencao: A string eh alterada.
+// DESCRIPTION:
+// Recieves a string that represents the name of a file and finds the path to the file.
 //
-// Ex.:   $PWD/file_uti.h  -->  /home/vela/zabot/file_uti.h
+// Atention: The string ist altered.
+//
 //
 void substitui_caminho( string &arq ){
 
-  // Pega o inicio e o fim da variavel de ambiente
   int inicio  = arq.find("$");
   int fim     = arq.find("/");
-  if(fim<0 && inicio>=0) // Se nao achou "/" na string mas achou $
+  if(fim<0 && inicio>=0)
     fim = arq.size();
   int tamanho = fim - inicio - 1;
 
-  // Pega o nome da variavel de ambiente se ela esta na string e substitui
   if( inicio>=0 ){
 
-    // Descobre o que ha na variavel de ambiente
     string variavel          = string( arq, inicio+1, tamanho );
     char *GETENV = getenv(variavel.c_str());
 
-    if(GETENV==NULL){   // Se nao existe a variavel de ambiente
+    if(GETENV==NULL){   
       string msg  = "Erro na funcao \"substitui_caminho(string &)\" da ";
       msg        += "biblioteca file_util.h\nNao foi possivel pegar a variavel";
       msg        += " de ambiente \"" + variavel + "\"";
       aborta(msg);
-    }else               // Senao, substitui o valor na string original
+    }else              
       arq.replace(inicio,tamanho+1,string(GETENV));
   }
 }
@@ -91,27 +88,22 @@ void substitui_caminho( string &arq ){
 
 
 //------------------------------------------------------------------------------
-// DESCRICAO:
-//   Gera um cabecalho no arquivo de saida.
-//   Este cabecalho eh util para facilitar a identificacao de arquivos de dados
-//  gerados por programas.
-// RECEBE:
-// RETORNA:
+// DESCRIPTION:
+//   Generates header on the output file.
 void outputFileHead( MTci &argc, char *argv[], ofstream &OUT, MTcvs &vec,
                      MTcvs &comment){
   char *dir = getenv("PWD");
 
   OUT<< "# ##################################################################\n"
-     << "# Arquivo criado com o comando:  ";
+     << "# File created with the command:  ";
   for( int i=0;i<argc;i++ ) OUT << argv[i] << " ";
 
-  OUT<< "\n# No diretorio:  ";
+  OUT<< "\n# On folder:  ";
   if( dir != NULL ) OUT << dir;
-  else              OUT << "(Nao foi possivel identificar o diretorio!)";
+  else              OUT << "(It was impossible to identify the folder!)";
 
-  OUT<< "\n# Em:  " << __TIME__ << "  " << __DATE__  << endl;
-  //OUT<< "\n# Tempo de Execução:  "
-     //<< clock()/static_cast<double>(CLOCKS_PER_SEC) << " s\n";
+  OUT<< "\n# On:  " << __TIME__ << "  " << __DATE__  << endl;
+
 
   OUT<< "#\n";
   if( !comment.empty() ){
@@ -121,7 +113,7 @@ void outputFileHead( MTci &argc, char *argv[], ofstream &OUT, MTcvs &vec,
   }
 
   for( unsigned int i=0;i<vec.size();i++ )
-    OUT << "# Coluna " << setw(2) << i+1 << ": " << vec[i] << "\n";
+    OUT << "# Column " << setw(2) << i+1 << ": " << vec[i] << "\n";
   OUT<< "# ##################################################################"
      << endl;
 }

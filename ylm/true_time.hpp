@@ -1,10 +1,10 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // Classe True_Time
 //
-//   Função objeto que retorna o instante de tempo atual.
+//   Function that retirns the current time.
 //
 //________________________________________________________
-//A.Z. - 02/13 => Criacao
+//A.Z. - 02/13 => Creation
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef TRUE_TIME_HPP
 #define TRUE_TIME_HPP

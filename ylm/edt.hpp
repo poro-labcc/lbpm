@@ -1,34 +1,24 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // 
-//  Função que calcula a Transformada Euclidiana de Distâncias
+//  Function that calculates the EDT - Euclidian Distance Transform
 //________________________________________________________
-//A.Z. - 12/13 => Criação
-//       02/14 => Parelização
+//A.Z. - 12/13 => Creation
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef EUCLIDIAN_DISTANCE_TRANSFORM
 #define EUCLIDIAN_DISTANCE_TRANSFORM
 
 
-// Padrão do C++
 #include <iostream>
 using namespace std;
 
 
-// Minhas bibliotecas
 #include "meusTipos.hpp"
-//#include "true_time.hpp"
 
-
-// // Para matrizes 3D com Boost
-// #include "boost/multi_array.hpp"
-// using namespace boost;
-// typedef multi_array<int , 3> matrix;
 
 #include "../common/Array.h"
 typedef Array<int> IntArray;
 typedef Array<bool> BoolArray;
 
-// Para operações da Tranformada de Distância Euclidiana
 #include "operators.hpp"
 
 
@@ -41,51 +31,42 @@ typedef Array<bool> BoolArray;
 
 
 //------------------------------------------------------------------------------
-// DESCRICAO:
-//   Calcula Transformada de Distância Euclidiana 2D ou 3D
-//   Aplico o algoritmo rápido (seção 3.4) de Saito & Toriwaki, 1994
+// DESCRIPTION:
+//   Calculates 2D or 3D EDT
+//   Applies algorithm (section 3.4) form Saito & Toriwaki, 1994
 //
 //   http://www.sciencedirect.com/science/article/pii/0031320394901333
 //
-//   Baseado no código sedt.cc de David Coeurjolly
+//   Based on sedt.cc from David Coeurjolly
 //   http://liris.cnrs.fr/~dcoeurjo
 //
-// ATENCAO:
-//   O resultado é colocado numa matriz passada por referência por questão
-//  de eficiência. Senão, eu retornaria, mas isso é lento.
 //
-//   Também por questão de eficiência, recebo duas matrizes auxiliares, ao
-//  invés de criá-las a cada vez que a função é chamada.
-//
-// RECEBE:
-//   background   => Cor do fundo
-//   img          => Imagem para calcular a transformada
-//   edt          => Matriz onde colocar o resultado da transformada
-//   nthreads     => Número de threads para usar
-//   maux, maux2  => Matrizes auxiliares já inicializadas com o tamanho da imagem
-// Esta versão foi traduzida para usar IntArray com acesso (x, y, z)
+// INPUTS:
+//   background   => background color
+//   img          => image to calculate EDT
+//   edt          => matrix to save EDT results
+//   maux, maux2  => auxiliary matrices
 void euclidian_distance_transform( MTci &bg, const IntArray &IMG, IntArray &EDT,
                                    IntArray &maux, IntArray &maux2 ){
-  
-    // Lê as dimensões na ordem correta (x, y, z)
+
     const int nx = IMG.size(0);
     const int ny = IMG.size(1);
     const int nz = IMG.size(2);
   
     // ---------------------------------------------------------------------------
-    // PASSO 1: Varredura ao longo do eixo X
+    // STEP 1: X axis
     for( int y=0; y<ny; y++){
     for( int z=0; z<nz; z++){
         if( IMG(0,y,z) == bg ) maux(0,y,z) = 0;
         else                     maux(0,y,z) = INFTY;
       
-        // Varredura para frente
+        // forward scan
         for( int x=1; x<nx; x++){
             if( IMG(x,y,z) == bg ) maux(x,y,z) = 0;
             else                     maux(x,y,z) = sum( 1, maux(x-1,y,z));   
         }
       
-        // Varredura para trás
+        // backward scan
         for(int x=nx-2; x>=0; x--){    
             if( maux(x+1,y,z) < maux(x,y,z) ) 
                 maux(x,y,z) = sum(1, maux(x+1,y,z));
@@ -93,9 +74,9 @@ void euclidian_distance_transform( MTci &bg, const IntArray &IMG, IntArray &EDT,
     }}
 
     // ---------------------------------------------------------------------------
-    // PASSO 2: Varredura ao longo do eixo Y
-    MTvi s(ny > nz ? ny : nz); // Reutiliza o vetor s para o maior entre ny e nz
-    MTvi t(ny > nz ? ny : nz); // Reutiliza o vetor t
+    // STEP 2: Y axis
+    MTvi s(ny > nz ? ny : nz); 
+    MTvi t(ny > nz ? ny : nz); 
     int q, w;
 
     for( int x=0; x<nx; x++){
@@ -104,8 +85,8 @@ void euclidian_distance_transform( MTci &bg, const IntArray &IMG, IntArray &EDT,
         s[0] = 0;
         t[0] = 0;
     
-        // Varredura para frente
-        for( int u=1; u<ny; u++){ // u aqui representa o índice y
+        // forward scan
+        for( int u=1; u<ny; u++){ 
             while( (q >= 0) &&
              (F( t[q], s[q], prod(maux(x,s[q],z),maux(x,s[q],z)) ) > 
               F( t[q], u,    prod(maux(x,u,z),   maux(x,u,z))    ) )
@@ -130,7 +111,7 @@ void euclidian_distance_transform( MTci &bg, const IntArray &IMG, IntArray &EDT,
             }
         }
     
-        // Varredura para trás
+        // backward scan
         for( int u=ny-1; u>=0; --u ){
             maux2(x,u,z) = F( u, s[q], prod( maux(x,s[q],z), maux(x,s[q],z)) );    
             if( u==t[q] ) q--;
@@ -138,15 +119,15 @@ void euclidian_distance_transform( MTci &bg, const IntArray &IMG, IntArray &EDT,
     }}
 
     // ---------------------------------------------------------------------------
-    // PASSO 3: Varredura ao longo do eixo Z
+    // STEP 3: Z axis
     for( int x=0; x<nx; x++){
     for( int y=0; y<ny; y++){
         q=0;
         s[0] = 0;
         t[0] = 0;
     
-        // Varredura para frente
-        for( int u=1; u<nz; u++){ // u aqui representa o índice z
+        // forward scan
+        for( int u=1; u<nz; u++){
             while( (q>=0) &&
                  (F(t[q],s[q], maux2(x,y,s[q])) > 
                   F(t[q],u,   maux2(x,y,u)))
@@ -171,7 +152,7 @@ void euclidian_distance_transform( MTci &bg, const IntArray &IMG, IntArray &EDT,
             }
         }
       
-        // Varredura para trás
+        // backward scan
         for( int u=nz-1; u>=0; --u){
             EDT(x,y,u) = F( u, s[q], maux2(x,y,s[q]) );       
             if( u==t[q] ) 
