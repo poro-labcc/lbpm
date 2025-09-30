@@ -23,6 +23,7 @@ jobs:
           python -m pip install -U sphinx
           python -m pip install sphinx-rtd-theme
           python -m pip install breathe
+          python -m pip install ghp-import
 
       - name: make the sphinx docs
         run: |
