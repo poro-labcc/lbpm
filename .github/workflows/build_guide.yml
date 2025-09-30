@@ -8,7 +8,8 @@ jobs:
 
   build_docs_job:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write  
     steps:
       - name: Checkout
         uses: actions/checkout@v2.3.4
@@ -33,3 +34,5 @@ jobs:
       - name: Run ghp-import
         run: |
           ghp-import -n -p -f ~/local/doc/build/html
+
+
