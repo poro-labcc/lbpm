@@ -21,6 +21,7 @@ export LIBDIR="${HOME}/.local"
 cmake                                    \
     -S /home/diogo/codes/lbpm \
     -B /home/diogo/lbpm_cpu \
+    -D USE_DOXYGEN=true  \
     -D CMAKE_CXX_COMPILER:PATH=mpicxx        \
     -D CMAKE_C_FLAGS="-g "         \
     -D CMAKE_CXX_FLAGS="-g "      \

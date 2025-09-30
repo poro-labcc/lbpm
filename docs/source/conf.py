@@ -72,8 +72,8 @@ if os.environ.get('READTHEDOCS') != 'True':
 
 # -- Breathe configuration -------------------------------------------------
 
-breathe_projects = {
-	"LBPM Doxygen": "/home/mcclurej/local/dev/LBPM/doc/xml/"
-}
-breathe_default_project = "LBPM Doxygen"
-breathe_default_members = ('members', 'undoc-members')
+#breathe_projects = {
+#	"LBPM Doxygen": "/home/mcclurej/local/dev/LBPM/doc/xml/"
+#}
+#breathe_default_project = "LBPM Doxygen"
+#breathe_default_members = ('members', 'undoc-members')
