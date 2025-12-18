@@ -837,8 +837,9 @@ class Full_Morphology{
       else if( iaux==_O ) Noutlet++;
       
       if( createRAW ){
-        aux_raw = _final_map(x,y,z);
-        fwrite(&aux_raw, sizeof(uint8_t), 1, FRAW);
+        int val = _final_map(x,y,z);
+        int16_t val_save = static_cast<int16_t>(val);
+        fwrite(&val_save, sizeof(int16_t), 1, FRAW);
       }
     }
     }
