@@ -16,7 +16,7 @@ using namespace std;
 #include "meusTipos.hpp"
 
 
-typedef Array<int> IntArray;
+typedef Array<int> IntArray;   //LBPM TYPES
 typedef Array<bool> BoolArray;
 
 

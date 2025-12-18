@@ -37,8 +37,10 @@ using namespace std;
 #include "../common/Domain.h"
 #include "../analysis/distance.h"
 
-typedef Array<int> IntArray;
+typedef Array<int> IntArray; //int32, LBPM type
+// typedef Array<int16_t> Int16Array; 
 typedef Array<bool> BoolArray;
+
 typedef vector< vector<int> > MTvvi;
 
 
@@ -79,9 +81,9 @@ class Full_Morphology{
     bool _iP, _iM;                                      // Sense of invasion
     int _chamber_i, _chamber_o;                         // Reservoir regions
     bool _all_faces;                                    // Surrounds the image for MICP   
-  
+    bool _saveImg;
     
-    string _outImgRoot, _whichImg, _outImgDir; 
+    string _outImgRoot, _outImgDir; 
     ofstream _dat, _ftime;
     
     
@@ -103,7 +105,9 @@ class Full_Morphology{
   
     IntArray _matrix1, _matrix2;
   
-    IntArray _mx_edt1, _mx_edt2; 
+    IntArray _mx_edt1, _mx_edt2;
+
+    IntArray _final_map;
    
     MTvi _next, _tail, _rtable;
   
@@ -157,7 +161,7 @@ class Full_Morphology{
     
     _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
     _outImgDir = fm_db->getScalar<std::string>("ImageDir");
-    _whichImg = fm_db->getScalar<std::string>("WhichImage");
+    _saveImg = fm_db->getScalar<bool>("SaveImage");
     
     _all_faces = true;        //both true for MICP
     _compressible = true;
@@ -281,10 +285,15 @@ class Full_Morphology{
       _mx_edt1.resize(_nx, _ny, _nz);
       _mx_edt2.resize(_nx, _ny, _nz);
       _trapped.resize(_nx, _ny, _nz);
+      _final_map.resize(_nx, _ny, _nz);
 
-    MTci N3 = _nx*_ny*_nz;
-    MTci max_eq = static_cast<int> ( ceil( static_cast<double>(N3)/2.0 ) );
-    _tail.resize( max_eq );
+    // MTci N3 = _nx*_ny*_nz;
+    // MTci max_eq = static_cast<int> ( ceil( static_cast<double>(N3)/2.0 ) );       OLD
+
+    size_t N3 = static_cast<size_t>(_nx) * static_cast<size_t>(_ny) * static_cast<size_t>(_nz);
+    size_t max_eq = static_cast<size_t>(ceil(static_cast<double>(N3) / 2.0));
+
+    _tail.resize(max_eq);
     _next.resize( max_eq );
     _rtable.resize( max_eq );
     // ---------------------------------------------------------------------------
@@ -355,7 +364,7 @@ class Full_Morphology{
     }
     }}
   
-    // Copies _mm into _mmorig
+    // Copies _mm into _mmorig and initializes _final_map
     _NP=0;
     for( int z=0; z<_nz; z++ ){
     for( int y=0; y<_ny; y++ ){
@@ -363,6 +372,13 @@ class Full_Morphology{
       iaux = _mm(x,y,z);
       if( iaux!=_S ) _NP++;
       _mmorig(x,y,z) = iaux;
+
+      if( iaux == _S ){
+        _final_map(x,y,z) = 0;
+      } else {
+          _final_map(x,y,z) = -1;
+        }
+
     }}}  
   
     int discount = _nx * _ny * _nz - dimx * dimy * dimz;
@@ -591,6 +607,11 @@ class Full_Morphology{
     for( int z=0; z<_nz; z++ ){
       if( _matrix2(x,y,z) < D24 ){
         _mm(x,y,z) = _I;
+
+        if( _final_map(x,y,z) == -1 ){
+          _final_map(x,y,z) = D;
+        }
+
       }
 
       _matrix1(x,y,z) = (_mm(x,y,z)==_I)? F:B;
@@ -767,12 +788,10 @@ class Full_Morphology{
     // Creates .raw file
   
     bool createRAW=false;
-    if( _whichImg=="all" ){
+
+    if( _saveImg==true && step==_d.size()-1 )
       createRAW=true;
-    }else{
-      if( _whichImg=="last" && step==_d.size()-1 )
-        createRAW=true;
-    }
+    
     
     double tt_end = _ttime();
 
@@ -786,7 +805,7 @@ class Full_Morphology{
       else if( _iZ ){ zaux = _nz-2; }
       
       int ndig = max(_d[0],_d[_d.size()-1]);
-      string saux = ".s" + ntos(ndig,step) + ".d" + ntos(ndig,D);
+      string saux = ".invasion_diameters";
       MTcs fraw = _outImgDir + "/" + _outImgRoot + saux + ".raw";
   
       FRAW = fopen64(fraw.c_str(), "wb");
@@ -818,7 +837,7 @@ class Full_Morphology{
       else if( iaux==_O ) Noutlet++;
       
       if( createRAW ){
-        aux_raw = static_cast<uint8_t>(iaux);
+        aux_raw = _final_map(x,y,z);
         fwrite(&aux_raw, sizeof(uint8_t), 1, FRAW);
       }
     }

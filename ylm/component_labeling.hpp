@@ -21,7 +21,7 @@ typedef Array<bool> BoolArray;
 
 
 
-void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next, 
+void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
                          MTvi &tail, MTvi &rtable );
 void merge( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
 void resolve( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
@@ -40,7 +40,7 @@ void resolve( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
 //   F, B         => Foreground and Background
 //   next, tail, rtable => vector to work with equivalences information
 //------------------------------------------------------------------------------
-void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next, 
+void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
                          MTvi &tail, MTvi &rtable ){
 
   
