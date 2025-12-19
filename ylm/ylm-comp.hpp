@@ -142,7 +142,10 @@ class Full_Morphology{
     _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
     _outImgDir = fm_db->getScalar<std::string>("ImageDir");
     _saveImg = fm_db->getScalar<bool>("SaveImage");
-    _compressible = fm_db->getScalar<bool>("Compressible");
+
+    // _compressible = fm_db->getScalar<bool>("Compressible");
+    auto protocol = fm_db->getScalar<std::string>("protocol");
+    if(protocol == "micp") _compressible=true; else if (protocol == "drainage") _compressible = false; else aborta("Invalid protocol. Chose between 'micp' or 'drainage'.")
 
     if(fm_db->keyExists("Surround")){
       _all_faces = fm_db->getScalar<bool>("Surround");
