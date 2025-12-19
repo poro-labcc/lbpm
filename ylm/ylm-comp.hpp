@@ -67,61 +67,39 @@ class Full_Morphology{
   
     int _ny, _nx, _nz;                                  // Work dimensions (with reservoirs, if any)
     int dimy, dimx, dimz;                               // Original dimensions
-    IntArray _mmorig;                                   // Original image, used for reference
-    IntArray _mm;                                       // Work image, modified during the simulation
-    
     int _NP;                                            // Porous pixels
+    int _chamber_i, _chamber_o;                         // Reservoir regions
+    int _I,                                             // _I -> Inlet fluid, 2
+        _O,                                             // _O -> Outlet fluid, 1
+        _S;                                             // _S -> Solid, 0
+
+    double resolution;
     
     MTvi _d;                                            // Diameters
+    MTvi _next, _tail, _rtable;
 
     bool _compressible;                                 // Compressibility, set as true for MICP
-    
-    
     bool _iX, _iY, _iZ;                                 // Direction of invasion
     bool _iP, _iM;                                      // Sense of invasion
-    int _chamber_i, _chamber_o;                         // Reservoir regions
     bool _all_faces;                                    // Surrounds the image for MICP   
-    bool _saveImg;
-    
+    bool _saveImg;    
+    bool has_out_inlet;
+
     string _outImgRoot, _outImgDir; 
+
     ofstream _dat, _ftime;
     
+    True_Time _ttime;                                  
     
-    True_Time _ttime;                                   // Medição do tempo
-    
-  
-    // Voxel labels
-
-    int _I,                                             // I -> Inlet fluid
-        _O,                                             // O -> Outlet fluid
-        _S;                                             // S -> Solid
-
-    
-    BoolArray _trapped;                                 // Trapped regions
-  
-  
-    bool has_out_inlet;
-  
-  
+    IntArray _final_map;                                // Output matrix  
+    IntArray _mmorig;                                   // Original image, used for reference
+    IntArray _mm;                                       // Work image, modified during the simulation
     IntArray _matrix1, _matrix2;
-  
     IntArray _mx_edt1, _mx_edt2;
-
-    IntArray _final_map;
-   
-    MTvi _next, _tail, _rtable;
-  
-    IntArray _edt;                                      // EDT matrix
+    IntArray _edt;   
+    BoolArray _trapped;            
+                                   
   };
-  
-  
-  
-  
-  
-  
-  
-  
-  
   
   //------------------------------------------------------------------------------
   // Description:
@@ -141,7 +119,6 @@ class Full_Morphology{
     Rcrit_new=0.f; 
     NULL_USE( Rcrit_new );
 
-    // Reads the input database 
     auto db = std::make_shared<Database>(filename);
     auto domain_db = db->getDatabase("Domain");
     auto fm_db = db->getDatabase("FM");
@@ -153,15 +130,11 @@ class Full_Morphology{
     
     auto ReadValues = domain_db->getVector<int>("ReadValues");
     auto WriteValues = domain_db->getVector<int>("WriteValues");
-
-    
-    // _S = VoxelLabels[0];
-    // _O = VoxelLabels[1];
-    // _I = VoxelLabels[2];
-
     _S = 0;
     _O = 1;
     _I = 2;
+
+    resolution = domain_db->getScalar<double>("voxel_length");
 
     auto READFILE = domain_db->getScalar<std::string>("Filename");
     MTcs mmfile(READFILE);
@@ -205,7 +178,7 @@ class Full_Morphology{
                 _iM = true;
             }
         } else {
-            aborta("Unkonwn direction.");
+            aborta("Unkonwn direction. Only one direction is allowed.");
         }
     } else {
         cout << "Surround selected. Direction is disconsidered. " << endl;
@@ -221,7 +194,6 @@ class Full_Morphology{
             _iY = true;
         else if(_nx > 1)
             _iX = true;
-
     }
     
     auto diameters = fm_db->getVector<int>("Diameters");
@@ -307,12 +279,12 @@ class Full_Morphology{
     _rtable.resize( max_eq );
     // ---------------------------------------------------------------------------
    
-  if(_all_faces) surround(_mm, _I);
-
     // ---------------------------------------------------------------------------
-    // Inicializes matrices
+    // Inicializes reservoir
+
+  if(_all_faces) {surround(_mm, _I);}
     
-    if(!_all_faces){
+    else{ //turn it into a function?
     // x invasion
     if( _iX ){
       for( int z=0; z<_nz; z++ ){
@@ -347,6 +319,8 @@ class Full_Morphology{
       }}
       
     } }
+
+    //reads input geometry
 
     ifstream FRAW( mmfile.c_str() );
     abriu( FRAW, mmfile );
@@ -449,7 +423,23 @@ class Full_Morphology{
     outputFileHead( argc, argv, _dat, vec, cmt );  
     // ---------------------------------------------------------------------------
   
-  
+    // ---------------------------------------------------------------------------
+    //Creates output file .csv and header
+
+    bool WriteHeader = false;
+    FILE *log_file = fopen("injection_output.csv", "r");
+    if (log_file != NULL)
+        fclose(log_file);
+    else
+        WriteHeader = true;
+
+    if (WriteHeader) {
+        log_file = fopen("injection_output.csv", "a+");
+        fprintf(log_file, "step diameter_px diameter_um num_px_in frac_px_in num_px_out frac_px_out\n");
+        fclose(log_file);
+    }
+
+
   
     // ---------------------------------------------------------------------------
     // Time file
@@ -881,8 +871,17 @@ class Full_Morphology{
            << setw(14) << tt_loop2c
            << setw(14) << tt_end
            << endl;
+
+
+//---------------------------------------------------------------
+//fills in .csv
+  FILE *log_file = fopen("injection_output.csv", "a");
+  fprintf(log_file, "%d %d %f %d %f %d %f\n", step, D, D * resolution, Ninlet, Ninlet/(1.0*_NP),
+         Noutlet, Noutlet/(1.0*_NP));
+  fclose(log_file);
+
+
   }
   
-
   
 #endif // FULL_MORPHOLOGY_HPP
