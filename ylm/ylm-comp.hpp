@@ -151,20 +151,29 @@ class Full_Morphology{
     _ny = size[1];
     _nz = size[2];
     
-    auto VoxelLabels = domain_db->getVector<int>("VoxelLabels");
-    _S = VoxelLabels[0];
-    _O = VoxelLabels[1];
-    _I = VoxelLabels[2];
+    auto ReadValues = domain_db->getVector<int>("ReadValues");
+    auto WriteValues = domain_db->getVector<int>("WriteValues");
+
     
+    // _S = VoxelLabels[0];
+    // _O = VoxelLabels[1];
+    // _I = VoxelLabels[2];
+
+    _S = 0;
+    _O = 1;
+    _I = 2;
+
     auto READFILE = domain_db->getScalar<std::string>("Filename");
     MTcs mmfile(READFILE);
     
     _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
     _outImgDir = fm_db->getScalar<std::string>("ImageDir");
     _saveImg = fm_db->getScalar<bool>("SaveImage");
-    
-    _all_faces = true;        //both true for MICP
-    _compressible = true;
+    _compressible = fm_db->getScalar<bool>("Compressible");
+
+    if(fm_db->keyExists("Surround")){
+      _all_faces = fm_db->getScalar<bool>("Surround");
+    } else{_all_faces = _compressible;}
     
     if (!_all_faces) {
         auto direction = fm_db->getVector<int>("Direction");
@@ -352,18 +361,25 @@ class Full_Morphology{
       _trapped(x,y,z) = false;
       FRAW >> auxraw;
       pc = static_cast<int>( auxraw );
+
+      int write_value_aux = -1;
+      for(int idx = 0; idx < ReadValues.size(); idx++){
+        if(pc == ReadValues[idx]){
+          write_value_aux = WriteValues[idx];
+          _mm(x,y,z) = write_value_aux;
+        }
+        }
       
-      if( pc == _I )  has_out_inlet=true;
-      if( pc != _S )  _NP++;
-  
-      if( pc!=_I  &&  pc!=_S  &&  pc!=_O ){  
-        aborta("Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
-      }
+      if(write_value_aux != _I && write_value_aux != _S && write_value_aux != _O){
+        aborta("Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );}
+
+      if( write_value_aux == _I )  has_out_inlet=true;
+      if( write_value_aux != _S )  _NP++;
+
       
-      _mm(x,y,z)     = pc;
-    }
-    }}
-  
+    }}}
+
+
     // Copies _mm into _mmorig and initializes _final_map
     _NP=0;
     for( int z=0; z<_nz; z++ ){
@@ -607,11 +623,6 @@ class Full_Morphology{
     for( int z=0; z<_nz; z++ ){
       if( _matrix2(x,y,z) < D24 ){
         _mm(x,y,z) = _I;
-
-        if( _final_map(x,y,z) == -1 ){
-          _final_map(x,y,z) = D;
-        }
-
       }
 
       _matrix1(x,y,z) = (_mm(x,y,z)==_I)? F:B;
@@ -833,6 +844,11 @@ class Full_Morphology{
     for( int x=x0; x<xM; x++ ){    
       
       iaux = _mm(x,y,z);
+
+      if( _final_map(x,y,z) == -1 && _mm(x,y,z) == _I ){
+        _final_map(x,y,z) = D;
+      }
+
       if     ( iaux==_I ) Ninlet++;
       else if( iaux==_O ) Noutlet++;
       
