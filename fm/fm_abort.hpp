@@ -1,13 +1,10 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 //
 // Function to abort the program when an error occours.
-//________________________________________________________
-//A.Z. - 03/05 => Creation
-//       11/05 => Uses #define instead of a function.
-//                Shows the file and line where the error occoured.
+//
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
-#ifndef ABORTA_HPP
-#define ABORTA_HPP
+#ifndef ABORT_HPP
+#define ABORT_HPP
 
 
 #include <iostream>
@@ -15,12 +12,12 @@
 using namespace std;
 
 
-#define aborta( erro ){                                         \
+#define abort_fm( error ){                                         \
   cerr << "!!  File: " << __FILE__ << "\n"                   \
        << "!!  Line  : " << __LINE__ << "\n"                   \
-       << "!!  " << erro << "\n\a!!  ABORTING ..." << endl;    \
+       << "!!  " << error << "\n\a!!  ABORTING ..." << endl;    \
   exit(1);                                                      \
   }
 
 
-#endif /* ABORTA_HPP */
+#endif /* ABORT_HPP */

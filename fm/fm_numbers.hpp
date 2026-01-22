@@ -1,8 +1,12 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
+//
 // Library with many functions to manipulate numbers.
-//________________________________________________________
-//A.Z. - 03/05 => Creation
+//
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
+
+// THIS FILE IS NOT NECESSARY ANYMORE.
+
+
 #ifndef NUMEROS_H
 #define NUMEROS_H
 
@@ -69,27 +73,27 @@ inline string ntos(const N&model, const N &n){
 // n=0 --> 0 0 0 0 0
 // n=1 --> 0 0 0 0 1
 // n=2 --> 0 0 0 1 0
-void binario(int n, int N, deque<int> &bin){
-  bin.clear(); 
+// void binario(int n, int N, deque<int> &bin){
+//   bin.clear(); 
 
-  while( n>0 ){        
-    int mod = n%2;
-    n -= mod;
-    n /= 2;
-    bin.push_front(mod);
-  }
+//   while( n>0 ){        
+//     int mod = n%2;
+//     n -= mod;
+//     n /= 2;
+//     bin.push_front(mod);
+//   }
 
-  int size=bin.size(); 
-  for( int i=size; i<N; i++ ){
-    bin.push_front(0);
-  }
+//   int size=bin.size(); 
+//   for( int i=size; i<N; i++ ){
+//     bin.push_front(0);
+//   }
 
-  if(size>N){        
-    cerr << "\n\aIt is impossible to write the number in binary with only"
-	  << N << " figures! ABORTING ..." << endl;
-    exit(1);
-  }
-}
+//   if(size>N){        
+//     cerr << "\n\aIt is impossible to write the number in binary with only"
+// 	  << N << " figures! ABORTING ..." << endl;
+//     exit(1);
+//   }
+// }
 
 
 

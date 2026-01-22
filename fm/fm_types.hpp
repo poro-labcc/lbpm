@@ -2,11 +2,9 @@
 //
 //   Most used types
 //
-//________________________________________________________
-//A.Z. - 07/05 => Creation
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
-#ifndef MEUSTIPOS_H
-#define MEUSTIPOS_H
+#ifndef FMTYPES_H
+#define FMTYPES_H
 
 #include <vector>
 #include <string>
@@ -41,4 +39,4 @@ typedef vector<float>::iterator     MTvfi;
 typedef vector<double>::iterator    MTvdi;
 typedef vector<string>::iterator    MTvsi;
 
-#endif /* MEUSTIPOS_H */
+#endif /* FMTYPES_H */

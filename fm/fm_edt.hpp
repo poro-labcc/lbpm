@@ -1,8 +1,7 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // 
 //  Function that calculates the EDT - Euclidian Distance Transform
-//________________________________________________________
-//A.Z. - 12/13 => Creation
+//
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef EUCLIDIAN_DISTANCE_TRANSFORM
 #define EUCLIDIAN_DISTANCE_TRANSFORM
@@ -12,14 +11,14 @@
 using namespace std;
 
 
-#include "meusTipos.hpp"
+#include "fm_types.hpp"
 
 
 #include "../common/Array.h"
 typedef Array<int> IntArray;
 typedef Array<bool> BoolArray;
 
-#include "operators.hpp"
+#include "fm_operators.hpp"
 
 
 

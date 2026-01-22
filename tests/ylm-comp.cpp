@@ -1,16 +1,7 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
-// OBJETIVO:
-//   Aplica o Young Laplace Method a uma geometria 2D ou 3D.
-//________________________________________________________
-// RECEBE:
-//   nth => Número de threads para usar
-//   cfg => Arquivo de configuração
-//________________________________________________________
-// MODO DE USAR:
-//   ylm 4 config.txt
-//________________________________________________________
-//A.Z. - 12/13 => Criacao
-//       02/14 => Adaptações para paralelização
+// 
+//   Applies the Full Morphology Method to a 2D or 3D geometry.
+//
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 
 
@@ -18,10 +9,11 @@
 #include <iostream>
 using namespace std;
 
-#include "../ylm/aborta.hpp"
-#include "../ylm/numeros.hpp"
-#include "../ylm/meusTipos.hpp"
-#include "../ylm/ylm-comp.hpp"
+#include "../fm/fm_abort.hpp"
+#include "../fm/fm_types.hpp"
+#include "../fm/fm_method.hpp"
+
+// #include "../fm/fm_numbers.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,7 +36,7 @@ using namespace std;
 
 int main( int argc, char *argv[] ){
 
-  if( argc!=2 ) aborta("Wrong number of parameters.");
+  if( argc!=2 ) abort_fm("Wrong number of parameters.");
   Full_Morphology fm( argc, argv );
   
   MTci nsteps = fm.Ndiam();

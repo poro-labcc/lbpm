@@ -1,8 +1,7 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // 
 //  Function that performs the Component Labeling form He, Chao & Suzuki, 2011.
-//________________________________________________________
-//A.Z. - 03/14 => Creation
+//
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 #ifndef COMPONENT_LABELING
 #define COMPONENT_LABELING
@@ -12,7 +11,7 @@
 using namespace std;
 
 
-#include "meusTipos.hpp"
+#include "fm_types.hpp"
 
 
 #include "../common/Array.h"
@@ -163,24 +162,3 @@ void resolve( MTci &x, MTci &y, MTvi &next, MTvi &tail, MTvi &rtable ){
 
 
 #endif // COMPONENT_LABELING
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

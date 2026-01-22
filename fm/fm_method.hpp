@@ -1,11 +1,8 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // Class Full_Morphology, 2D and 3D
 //
-//
 // Applies Full Morphology Method based on the paper by Magnani et al, 2000 and
 // several other references on Mathematical Morphology. Adapted from Zabot et al 2024.
-//
-//
 //
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 
@@ -16,16 +13,19 @@
 #include <fstream>
 #include <iomanip>
 #include <stdint.h>
+#include <string>
 using namespace std;
 
-#include "edt.hpp"
-#include "geometry.hpp"
-#include "component_labeling.hpp"
+#include "fm_edt.hpp"
+#include "fm_geometry.hpp"
+#include "fm_component_labeling.hpp"
+#include "fm_types.hpp"
 
-#include "file_uti.hpp"
-#include "true_time.hpp"
-#include "meusTipos.hpp"
-#include "dataFileReader.hpp"
+// #include "file_uti.hpp"
+// #include "true_time.hpp"
+// #include "dataFileReader.hpp" NOT NEEDED ANYMORE
+
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +38,7 @@ using namespace std;
 #include "../analysis/distance.h"
 
 typedef Array<int> IntArray; //int32, LBPM type
-// typedef Array<int16_t> Int16Array; 
+// typedef Array<int16_t> IntArray; 
 typedef Array<bool> BoolArray;
 
 typedef vector< vector<int> > MTvvi;
@@ -85,11 +85,7 @@ class Full_Morphology{
     bool _saveImg;    
     bool has_out_inlet;
 
-    string _outImgRoot, _outImgDir; 
-
-    ofstream _dat, _ftime;
-    
-    True_Time _ttime;                                  
+    string _outImgRoot;                         
     
     IntArray _final_map;                                // Output matrix  
     IntArray _mmorig;                                   // Original image, used for reference
@@ -97,6 +93,15 @@ class Full_Morphology{
     IntArray _matrix1, _matrix2;
     IntArray _mx_edt1, _mx_edt2;
     IntArray _edt;   
+
+    // Int16Array _final_map;                                // Output matrix  
+    // Int16Array _mmorig;                                   // Original image, used for reference
+    // Int16Array _mm;                                       // Work image, modified during the simulation
+    // Int16Array _matrix1, _matrix2;
+    // Int16Array _mx_edt1, _mx_edt2;
+    // Int16Array _edt;   
+
+    
     BoolArray _trapped;            
                                    
   };
@@ -140,12 +145,11 @@ class Full_Morphology{
     MTcs mmfile(READFILE);
     
     _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
-    _outImgDir = fm_db->getScalar<std::string>("ImageDir");
     _saveImg = fm_db->getScalar<bool>("SaveImage");
 
     // _compressible = fm_db->getScalar<bool>("Compressible");
     auto protocol = fm_db->getScalar<std::string>("protocol");
-    if(protocol == "micp") _compressible=true; else if (protocol == "drainage") _compressible = false; else aborta("Invalid protocol. Chose between 'micp' or 'drainage'.")
+    if(protocol == "micp") _compressible=true; else if (protocol == "drainage") _compressible = false; else abort_fm("Invalid protocol. Chose between 'micp' or 'drainage'.")
 
     if(fm_db->keyExists("Surround")){
       _all_faces = fm_db->getScalar<bool>("Surround");
@@ -181,7 +185,7 @@ class Full_Morphology{
                 _iM = true;
             }
         } else {
-            aborta("Unkonwn direction. Only one direction is allowed.");
+            abort_fm("Unkonwn direction. Only one direction is allowed.");
         }
     } else {
         cout << "Surround selected. Direction is disconsidered. " << endl;
@@ -209,18 +213,12 @@ class Full_Morphology{
        _d.resize( distance( _d.begin(),it ) );
      
        if( _d.size()==0 )
-       aborta("It was impossible to create diameters array.");
+       abort_fm("It was impossible to create diameters array.");
      
       reverse( _d.begin(), _d.end() );
-    
-  
-    _outImgDir += "/";
-    mymkdir( _outImgDir );
   
     
-   
-    double tt_read = _ttime();
-  
+ 
   
     // Adds reservoirs where needed
     int x0=0, y0=0, z0=0;
@@ -271,11 +269,17 @@ class Full_Morphology{
       _trapped.resize(_nx, _ny, _nz);
       _final_map.resize(_nx, _ny, _nz);
 
+    // -------------------------------- OLD -------------------------------
+
     // MTci N3 = _nx*_ny*_nz;
-    // MTci max_eq = static_cast<int> ( ceil( static_cast<double>(N3)/2.0 ) );       OLD
+    // MTci max_eq = static_cast<int> ( ceil( static_cast<double>(N3)/2.0 ) );
+
+    //--------------------------------- NEW -------------------------------
 
     size_t N3 = static_cast<size_t>(_nx) * static_cast<size_t>(_ny) * static_cast<size_t>(_nz);
     size_t max_eq = static_cast<size_t>(ceil(static_cast<double>(N3) / 2.0));
+
+    //---------------------------------------------------------------------
 
     _tail.resize(max_eq);
     _next.resize( max_eq );
@@ -325,8 +329,10 @@ class Full_Morphology{
 
     //reads input geometry
 
-    ifstream FRAW( mmfile.c_str() );
-    abriu( FRAW, mmfile );
+    std::ifstream FRAW(mmfile);
+    if (!FRAW.is_open()) {
+        abort_fm("It was impossible to open/create the file " + mmfile);
+    }
     unsigned char auxraw;
     int pc;
 
@@ -348,7 +354,14 @@ class Full_Morphology{
         }
       
       if(write_value_aux != _I && write_value_aux != _S && write_value_aux != _O){
-        aborta("Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );}
+        // abort_fm("Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
+        abort_fm(
+                  std::string("Unknown color in (")
+                  + std::to_string(x) + ", "
+                  + std::to_string(y) + ", "
+                  + std::to_string(z) + ")."
+                );
+        }
 
       if( write_value_aux == _I )  has_out_inlet=true;
       if( write_value_aux != _S )  _NP++;
@@ -386,46 +399,15 @@ class Full_Morphology{
       _NP = _NP - discount;
     }
   
-  
-  
-    
-    tt_read = _ttime() - tt_read;
     // ---------------------------------------------------------------------------
   
    
     
     // ---------------------------------------------------------------------------
     // Calculates _mmorig EDT
-    double tt_edt = _ttime();
     euclidian_distance_transform( _S, _mmorig, _edt, _mx_edt1, _mx_edt2 );
-    tt_edt = _ttime() - tt_edt;
     // ---------------------------------------------------------------------------
-  
-  
-  
-    // ---------------------------------------------------------------------------
-    //Creates output file .dat
-    MTvs vec(6), cmt(4);
     
-    vec[0] = "Step";
-    vec[1] = "Diameter (px)";
-    vec[2] = "Number of pixels occupied by inlet fluid.";
-    vec[3] = "Number of pixels occupied by inlet fluid / Number of porous pixels";
-    vec[4] = "Number of pixels occupied by outlet fluid.";
-    vec[5] = "Number of pixels occupied by outlet fluid  / Number of porous pixels";
-    
-  
-    cmt[0] = "Image width  (x) (px)     : " + ntos( dimx );
-    cmt[1] = "Image height (y) (px)     : " + ntos( dimy );
-    cmt[2] = "Image planes (z) (px)     : " + ntos( dimz );
-    cmt[3] = "Number of porous pixels   : " + ntos( _NP  ); 
-  
-    string saux = _outImgDir + "/" + _outImgRoot + ".dat";
-    _dat.open( saux.c_str() );
-    abriu( _dat, saux );
-    outputFileHead( argc, argv, _dat, vec, cmt );  
-    // ---------------------------------------------------------------------------
-  
     // ---------------------------------------------------------------------------
     //Creates output file .csv and header
 
@@ -438,44 +420,10 @@ class Full_Morphology{
 
     if (WriteHeader) {
         log_file = fopen("injection_output.csv", "a+");
-        fprintf(log_file, "step diameter_px diameter_um num_px_in frac_px_in num_px_out frac_px_out\n");
+        fprintf(log_file, "step diameter_px diameter_um num_px_in frac_in num_px_out frac_out\n");
         fclose(log_file);
     }
 
-
-  
-    // ---------------------------------------------------------------------------
-    // Time file
-    saux = _outImgDir + "/" + _outImgRoot + "_time.txt";
-    _ftime.open( saux.c_str() );
-    _ftime << scientific << setprecision(6);
-    
-    abriu( _ftime, saux );
-    _ftime << "# File with execution times" << endl;
-    _ftime << "# Times in seconds" << endl;
-    _ftime << endl;
-    
-    _ftime << "# " << tt_read << " # Time to read and initialize data" << endl;
-    _ftime << "# " << tt_edt  << " # Time to calculate EDT at initialization" << endl;
-    
-    
-    _ftime << "\n\n"
-           << "# Col  1: Step number\n"
-           << "# Col  2: Step Diameter\n"
-           << "# Col  3: tt_step\n"
-           << "# Col  4: tt_loop1\n"
-           << "# Col  5: tt_edt1\n"
-           << "# Col  6: tt_loop2\n"
-           << "# Col  7: tt_cl1\n"
-           << "# Col  8: tt_loop3\n"
-           << "# Col 9: tt_loop4\n"
-           << "# Col 10: tt_loop5\n"
-           << "# Col 11: tt_loop1c\n"
-           << "# Col 12: tt_cl1c\n"
-           << "# Col 13: tt_loop2c\n"
-           << "# Col 14: tt_end\n"
-           << endl;
-    // ---------------------------------------------------------------------------  
   }
   
   
@@ -496,18 +444,11 @@ class Full_Morphology{
   //------------------------------------------------------------------------------
   int Full_Morphology::diameter( MTci &step ){
     if( step<0 || step>=_d.size() )
-      aborta( "Invalid step value." );
+      abort_fm( "Invalid step value." );
     return _d[step];
   }
   
-  
-  
-  
-  
-  
-  
-  
-  
+
   //------------------------------------------------------------------------------
   // DESCRIPTION:
   //   Calculates invasion for a given diameter
@@ -519,8 +460,6 @@ class Full_Morphology{
     
     
     MTci D = this->diameter(step);
-    _ftime << setw(3) << step << setw(4) << D; 
-    double tt_step = _ttime();  
     MTcd D24 = D*D/4.0; 
   
     // Background and Foreground values for binary images
@@ -545,7 +484,6 @@ class Full_Morphology{
     // - 1st erosion -> matrix1
     // * equals _mm to _mmorig
     //----------------------------------------------------------------------------
-    double tt_loop1 = _ttime();
     // #pragma omp parallel for num_threads (_nthreads)
     for( int x=0; x<_nx; x++ ){
     for( int y=0; y<_ny; y++ ){
@@ -565,7 +503,6 @@ class Full_Morphology{
       }      
     }}}
 
-    tt_loop1 = _ttime() - tt_loop1;
     //----------------------------------------------------------------------------
   
   
@@ -597,9 +534,7 @@ class Full_Morphology{
     //----------------------------------------------------------------------------
     // Now, compute the EDT of the negative, treating the Foreground pixels as
     // Background. Compute the EDT of the image _matrix1 and store the result in _matrix2.
-    double tt_edt1 = _ttime();
     euclidian_distance_transform( F, _matrix1, _matrix2, _mx_edt1, _mx_edt2  );
-    tt_edt1 = _ttime() - tt_edt1;
     //----------------------------------------------------------------------------
   
 
@@ -609,7 +544,6 @@ class Full_Morphology{
     // - 2nd erosion
     // * Highlights regions occupied by fluids in _mm
     //----------------------------------------------------------------------------
-    double tt_loop2 = _ttime();
     // #pragma omp parallel for num_threads (_nthreads)
     for( int x=0; x<_nx; x++ ){
     for( int y=0; y<_ny; y++ ){
@@ -620,7 +554,6 @@ class Full_Morphology{
 
       _matrix1(x,y,z) = (_mm(x,y,z)==_I)? F:B;
     }}}
-    tt_loop2 = _ttime() - tt_loop2;
     
     
     
@@ -628,9 +561,7 @@ class Full_Morphology{
     // LOOP 2b:
     // * Disconnected regions of invaded fluid on matrix1
     //----------------------------------------------------------------------------
-    double tt_cl1 = _ttime();
     component_labeling( _matrix1, F, B, _next, _tail, _rtable );
-    tt_cl1 = _ttime() - tt_cl1;
     chamber_label =  _matrix1(xaux,yaux,zaux);  
 
 
@@ -642,7 +573,6 @@ class Full_Morphology{
     // * Determines what kind of fluid will be at each voxel according to Omega
     // * Set final image colors
     //----------------------------------------------------------------------------
-      double tt_loop3 = _ttime();
     for( int x=0; x<_nx; x++ ){
     for( int y=0; y<_ny; y++ ){
     for( int z=0; z<_nz; z++ ){
@@ -667,11 +597,6 @@ class Full_Morphology{
       }
       
     }}}
-    tt_loop3 = _ttime() - tt_loop3;
-    
-  
-  
-    double tt_loop4 = _ttime();
     
     int x0=0  , y0=0  , z0=0;
     int xM=_nx, yM=_ny, zM=_nz;
@@ -712,9 +637,6 @@ class Full_Morphology{
       zM--;    
     }
   }
-    tt_loop4 = _ttime() - tt_loop4;      
-     
-    double tt_loop5 = _ttime();
     if( has_out_inlet ){
       // #pragma omp parallel for num_threads (_nthreads)
       for( int x=x0; x<xM; x++ ){
@@ -724,7 +646,6 @@ class Full_Morphology{
           _mm(x,y,z) = _I;
       }}}
     }
-    tt_loop5 = _ttime() - tt_loop5;      
   
   
   
@@ -734,16 +655,12 @@ class Full_Morphology{
     // 2 - Set this and past trapped voxels
     // 3 - Save this pixels as expelled fluid
     //----------------------------------------------------------------------------
-    double tt_loop1c=0;
-    double tt_cl1c=0;
-    double tt_loop2c=0;
-    
+
     if( !_compressible ){
   
       //--------------------------------------------------------------------------
       // LOOP c1a:
         // * Determines if a pixel is trapped or not
-      tt_loop1c = _ttime();
       // #pragma omp parallel for num_threads (_nthreads)
       for( int x=0; x<_nx; x++ ){
       for( int y=0; y<_ny; y++ ){
@@ -754,11 +671,7 @@ class Full_Morphology{
   
         _matrix1(x,y,z) = (_mm(x,y,z)==_O)? F:B;
       }}}
-      tt_loop1c = _ttime() - tt_loop1c;      
-      
-      tt_cl1c = _ttime();
       component_labeling( _matrix1, F, B, _next, _tail, _rtable );
-      tt_cl1c = _ttime() - tt_cl1c;
       
     
       xaux=_nx/2, yaux=_ny/2, zaux=_nz/2;
@@ -775,7 +688,6 @@ class Full_Morphology{
       // * All expelled fluid regions disconnected to the outlet are set as trapped.
       //--------------------------------------------------------------------------
   
-      tt_loop2c = _ttime();
       // #pragma omp parallel for num_threads (_nthreads)
       for( int x=0; x<_nx; x++ ){
       for( int y=0; y<_ny; y++ ){
@@ -784,7 +696,6 @@ class Full_Morphology{
         if( _mm(x,y,z)==_O &&  _matrix1(x,y,z) != chamber_label )
           _trapped(x,y,z)=true;
       }}}
-      tt_loop2c = _ttime() - tt_loop2c;
     }
   
         
@@ -797,7 +708,6 @@ class Full_Morphology{
       createRAW=true;
     
     
-    double tt_end = _ttime();
 
     uint8_t aux_raw;
     FILE *FRAW;
@@ -809,8 +719,8 @@ class Full_Morphology{
       else if( _iZ ){ zaux = _nz-2; }
       
       int ndig = max(_d[0],_d[_d.size()-1]);
-      string saux = ".invasion_diameters";
-      MTcs fraw = _outImgDir + "/" + _outImgRoot + saux + ".raw";
+      string saux = "invasion_diameters";
+      MTcs fraw = saux + ".raw";
   
       FRAW = fopen64(fraw.c_str(), "wb");
     }
@@ -854,27 +764,7 @@ class Full_Morphology{
     }
     }
     if( createRAW ) fclose(FRAW); 
-    tt_end = _ttime() - tt_end;
     
-
-    _dat << setprecision(6) << step << " " << D << " " << Ninlet << " " << Ninlet/(1.0*_NP) << " " << Noutlet << " " << Noutlet/(1.0*_NP) << endl;
-
-    // Saves times
-    tt_step = _ttime() - tt_step;  
-    _ftime << setw(14) << tt_step
-           << setw(14) << tt_loop1
-           << setw(14) << tt_edt1
-           << setw(14) << tt_loop2
-           << setw(14) << tt_cl1
-           << setw(14) << tt_loop3
-           << setw(14) << tt_loop4
-           << setw(14) << tt_loop5
-           << setw(14) << tt_loop1c
-           << setw(14) << tt_cl1c
-           << setw(14) << tt_loop2c
-           << setw(14) << tt_end
-           << endl;
-
 
 //---------------------------------------------------------------
 //fills in .csv

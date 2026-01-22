@@ -1,3 +1,12 @@
+//=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
+//
+// Library used to calculate EDT
+//
+// operators : Basic arithmetic operation using INFTY numbers
+// David Coeurjolly (david.coeurjolly@liris.cnrs.fr) - Sept. 2004
+//
+//=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
+
 /**
  * 
  * Library used to calculate EDT

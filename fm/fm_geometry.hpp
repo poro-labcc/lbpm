@@ -1,8 +1,7 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // 
 //  Functions that apply transformations to the geometries.
-//________________________________________________________
-//A.Z. - 12/13 => Creation
+//
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 
 #ifndef FMM_GEOMETRY_HPP
@@ -13,7 +12,7 @@
 #include <iostream>
 using namespace std;
 
-#include "meusTipos.hpp"
+#include "fm_types.hpp"
 
 
 typedef Array<int> IntArray;   //LBPM TYPES

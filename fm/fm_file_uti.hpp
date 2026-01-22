@@ -1,13 +1,11 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 //
-// Funções para ajudar na manipulação de arquivos
 // Functions to help manipulate files
-//________________________________________________________
-//A.Z. - 03/05 => Creation
-//       10/05 => Uses  aborta.h and meusTipos.h libraries
-//       01/07 => Function outputFileHead
-//       03/08 => Function outputFileHead also prints date
+//
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
+
+// THIS FILE IS NO MORE NECESSARY.
+
 #ifndef FILE_UTI_H
 #define FILE_UTI_H
 
@@ -16,8 +14,8 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include "aborta.hpp"
-#include "meusTipos.hpp"
+#include "fm_abort.hpp"
+#include "fm_types.hpp"
 using namespace std;
 
 
@@ -49,43 +47,8 @@ void mymkdir( MTcs &folder ){
 template < class T >
 inline void abriu( T &obj, MTcs &nome ){
   if( !obj.is_open() )
-    aborta("It was impossible to open/create the file "+nome);
+    abort_fm("Unable to open/create the file "+nome);
 }
-
-
-
-
-//------------------------------------------------------------------------------
-// DESCRIPTION:
-// Recieves a string that represents the name of a file and finds the path to the file.
-//
-// Atention: The string ist altered.
-//
-//
-void substitui_caminho( string &arq ){
-
-  int inicio  = arq.find("$");
-  int fim     = arq.find("/");
-  if(fim<0 && inicio>=0)
-    fim = arq.size();
-  int tamanho = fim - inicio - 1;
-
-  if( inicio>=0 ){
-
-    string variavel          = string( arq, inicio+1, tamanho );
-    char *GETENV = getenv(variavel.c_str());
-
-    if(GETENV==NULL){   
-      string msg  = "Erro na funcao \"substitui_caminho(string &)\" da ";
-      msg        += "biblioteca file_util.h\nNao foi possivel pegar a variavel";
-      msg        += " de ambiente \"" + variavel + "\"";
-      aborta(msg);
-    }else              
-      arq.replace(inicio,tamanho+1,string(GETENV));
-  }
-}
-
-
 
 //------------------------------------------------------------------------------
 // DESCRIPTION:
