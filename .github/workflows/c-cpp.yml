@@ -22,76 +22,53 @@ jobs:
       MPI_DIR: /home/runner/.openmpi
       
     steps:      
-    - name: download dependencies
+    - name: update ubuntu
       run: |
-        echo $LBPM_ZLIB_DIR
-        echo $LBPM_HDF5_DIR
-        echo $LBPM_SILO_DIR
-        echo $GITHUB_PATH
-        echo $GITHUB_WORKSPACE
-          
         sudo apt-get update -y
-        wget https://github.com/llnl/Silo/releases/download/4.12.0/Silo-4.12.0.tar.xz
-        wget https://www.zlib.net/fossils/zlib-1.2.11.tar.gz
-        wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.12/src/hdf5-1.8.12.tar.gz
-       
-        tar -xzf zlib-1.2.11.tar.gz
-        tar -xzf hdf5-1.8.12.tar.gz
-        tar -xf Silo-4.12.0.tar.xz   
 
     - name: check out commit
       uses: actions/checkout@v2
       with: 
         path: LBPM
 
-
-
-    - name: install-openmpi
+    - name: download and install openmpi
       run: |
-        wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-3.1.2.tar.gz
-        tar -xvf ./openmpi-3.1.2.tar.gz
-        ./openmpi-3.1.2/configure --prefix="$HOME/.openmpi"
+        wget -q https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.8.tar.gz
+        tar -xzf openmpi-4.1.8.tar.gz
+        cd openmpi-4.1.8
+        ./configure --prefix="$HOME/.openmpi"
         make -j
         sudo make install
+        cd ..
         echo "$HOME/.openmpi/bin" >> $GITHUB_PATH
-               
-  
 
-    - name: install zlib dependencies
+    - name: download and install zlib 
       run: |
-        cd zlib-1.2.11
+        wget -q https://zlib.net/zlib-1.3.1.tar.gz
+        cd zlib-1.3.1
         ./configure --prefix=$LBPM_ZLIB_DIR
         make
         sudo make install
         cd ..
 
-
-    - name: install hdf5 dependencies
+    - name: download and install hdf5 
       run: |
-        cd hdf5-1.8.12
+        wget -q https://sourceforge.net/projects/hdf5.mirror/files/hdf5_1.14.6/hdf5-1.14.6.tar.gz/download -O hdf5.tar.gz
+        cd hdf5-1.14.6
         CC=/home/runner/.openmpi/bin/mpicc  CXX=/home/runner/.openmpi/bin/mpicxx  CXXFLAGS="-fPIC -O3 -std=c++14" \
         ./configure --prefix=$LBPM_HDF5_DIR --enable-parallel --enable-shared --with-zlib=$LBPM_ZLIB_DIR
         make
         sudo make install
         cd ..
 
-
-    - name: install silo dependencies
-      run: |
-        cd Silo-4.12.0
-        CC=$MPI_DIR/bin/mpicc  CXX=$MPI_DIR/bin/mpicxx CXXFLAGS="-fPIC -O3 -std=c++14" \
-        ./configure --prefix=$LBPM_SILO_DIR -with-hdf5="$LBPM_HDF5_DIR/include,$LBPM_HDF5_DIR/lib" --enable-static
-        make 
-        sudo make install
-        cd ..
-
-
     - name: configure cmake
       run: |
         mkdir build
         cd build
-        rm -rf CMake*      
-        cmake                                           \
+        cmake \
+        -D USE_SILO=0                       \
+        -D USE_TIMER=0 \
+        -D USE_CUDA=0 && \
         -D CMAKE_BUILD_TYPE:STRING=Release          \
         -D CMAKE_C_COMPILER:PATH=$MPI_DIR/bin/mpicc              \
         -D CMAKE_CXX_COMPILER:PATH=$MPI_DIR/bin/mpicxx           \
@@ -100,17 +77,9 @@ jobs:
         -D CMAKE_CXX_FLAGS="-fPIC"                  \
         -D CMAKE_CXX_STD=14                         \
         -D TEST_MAX_PROCS=1    \
-        -D USE_TIMER=0                              \
-          -D TIMER_DIRECTORY=$LBPM_TIMER_DIR     \
-        -D USE_NETCDF=0                             \
-          -D NETCDF_DIRECTORY=$LBPM_NETCDF_DIR   \
-        -D USE_SILO=0                               \
-          -D HDF5_DIRECTORY=$LBPM_HDF5_DIR         \
-          -D SILO_DIRECTORY=$LBPM_SILO_DIR         \
+        -D HDF5_DIRECTORY=$LBPM_HDF5_DIR         \
         -D USE_CUDA=0                               \
         $GITHUB_WORKSPACE/LBPM
-
-                
  
     - name: build and make
       run: |
