@@ -31,15 +31,13 @@ jobs:
         echo $GITHUB_WORKSPACE
           
         sudo apt-get update -y
-             
-        wget https://bitbucket.org/AdvancedMultiPhysics/tpl-builder/downloads/Silo-4.10.3RC.modified.tar.gz
+        wget https://bitbucket.org/AdvancedMultiPhysics/tpl-builder/downloads/silo-4.10.2.tar.gz            
         wget https://www.zlib.net/fossils/zlib-1.2.11.tar.gz
         wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.12/src/hdf5-1.8.12.tar.gz
-        #wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.10/src/hdf5-1.8.10.tar.gz 
        
         tar -xzvf zlib-1.2.11.tar.gz
         tar -xzvf hdf5-1.8.12.tar.gz
-        tar -xzvf Silo-4.10.3RC.modified.tar.gz
+        tar -xzvf silo-4.10.2.tar.gz
    
 
     - name: check out commit
@@ -81,7 +79,7 @@ jobs:
 
     - name: install silo dependencies
       run: |
-        cd Silo-4.10.3RC.modified
+        cd silo-4.10.2
         CC=$MPI_DIR/bin/mpicc  CXX=$MPI_DIR/bin/mpicxx CXXFLAGS="-fPIC -O3 -std=c++14" \
         ./configure --prefix=$LBPM_SILO_DIR -with-hdf5="$LBPM_HDF5_DIR/include,$LBPM_HDF5_DIR/lib" --enable-static
         make 
