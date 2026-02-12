@@ -55,6 +55,7 @@ jobs:
     - name: download and install hdf5 
       run: |
         wget -q https://sourceforge.net/projects/hdf5.mirror/files/hdf5_1.14.6/hdf5-1.14.6.tar.gz/download -O hdf5.tar.gz
+        tar -xzf hdf5.tar.gz
         cd hdf5-1.14.6
         CC=/home/runner/.openmpi/bin/mpicc  CXX=/home/runner/.openmpi/bin/mpicxx  CXXFLAGS="-fPIC -O3 -std=c++14" \
         ./configure --prefix=$LBPM_HDF5_DIR --enable-parallel --enable-shared --with-zlib=$LBPM_ZLIB_DIR
