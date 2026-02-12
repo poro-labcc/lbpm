@@ -35,9 +35,9 @@ jobs:
         wget https://www.zlib.net/fossils/zlib-1.2.11.tar.gz
         wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.12/src/hdf5-1.8.12.tar.gz
        
-        tar -xzvf zlib-1.2.11.tar.gz
-        tar -xzvf hdf5-1.8.12.tar.gz
-        tar -xzvf Silo-4.12.0.tar.xz   
+        tar -xzf zlib-1.2.11.tar.gz
+        tar -xzf hdf5-1.8.12.tar.gz
+        tar -xf Silo-4.12.0.tar.xz   
 
     - name: check out commit
       uses: actions/checkout@v2
