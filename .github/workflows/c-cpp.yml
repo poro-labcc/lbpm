@@ -99,5 +99,4 @@ jobs:
           
       - name: tests
         run: |
-          cd build
           ctest --test-dir build --output-on-failure
