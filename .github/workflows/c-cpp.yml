@@ -3,94 +3,101 @@ name: LBPM CI
 on:
   workflow_dispatch:
   push:
-    branches:
-      - master
-      - dev
+    branches: [master, dev]
   pull_request:
-    branches:
-      - master
-      - dev
+    branches: [master, dev]
 
 jobs:
   build-and-test:
-
     runs-on: ubuntu-latest
     env:
-      LBPM_ZLIB_DIR: /home/runner/extlib/zlib
-      LBPM_HDF5_DIR: /home/runner/extlib/hdf5
-      LBPM_SILO_DIR: /home/runner/extlib/silo
-      MPI_DIR: /home/runner/.openmpi
+      MPI_VERSION: "4.1.8"
+      ZLIB_VERSION: "1.3.1"
+      HDF5_VERSION: "1.14.6"
+
+      MPI_DIR: ${{ github.workspace }}/deps/openmpi
+      LBPM_ZLIB_DIR: ${{ github.workspace }}/deps/zlib
+      LBPM_HDF5_DIR: ${{ github.workspace }}/hdf5
 
     steps:
-    - name: update ubuntu
-      run: |
-        sudo apt-get update -y
+      - uses: actions/checkout@v4
+        with:
+          path: LBPM
 
-    - name: check out commit
-      uses: actions/checkout@v2
-      with:
-        path: LBPM
+      - name: Install build tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential cmake wget tar
 
-    - name: download and install openmpi
-      run: |
-        wget -q https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.8.tar.gz
-        tar -xzf openmpi-4.1.8.tar.gz
-        cd openmpi-4.1.8
-        ./configure --prefix="$HOME/.openmpi"
-        make -j
-        sudo make install
-        cd ..
-        echo "$HOME/.openmpi/bin" >> $GITHUB_PATH
+      - name: Cache compiled deps (OpenMPI, zlib, HDF5)
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/openmpi
+            deps/zlib
+            deps/hdf5
+          key: ${{ runner.os }}-lbpm-deps-mpi${{ env.MPI_VERSION }}-zlib${{ env.ZLIB_VERSION }}-hdf5${{ env.HDF5_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-lbpm-deps-          
 
-    - name: download and install zlib 
-      run: |
-        wget -q https://zlib.net/zlib-1.3.1.tar.gz
-        tar -xzf zlib-1.3.1.tar.gz
-        cd zlib-1.3.1
-        ./configure --prefix=$LBPM_ZLIB_DIR
-        make
-        sudo make install
-        cd ..
+      - name: Build OpenMPI
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-${MPI_VERSION}.tar.gz
+          tar -xzf openmpi-${MPI_VERSION}.tar.gz
+          cd openmpi-${MPI_VERSION}
+          ./configure --prefix="${MPI_DIR}"
+          make -j
+          make install
 
-    - name: download and install hdf5 
-      run: |
-        wget -q https://sourceforge.net/projects/hdf5.mirror/files/hdf5_1.14.6/hdf5-1.14.6.tar.gz/download -O hdf5.tar.gz
-        tar -xzf hdf5.tar.gz
-        cd hdf5-1.14.6
-        CC=/home/runner/.openmpi/bin/mpicc  CXX=/home/runner/.openmpi/bin/mpicxx  CXXFLAGS="-fPIC -O3 -std=c++14" \
-        ./configure --prefix=$LBPM_HDF5_DIR --enable-parallel --enable-shared --with-zlib=$LBPM_ZLIB_DIR
-        make
-        sudo make install
-        cd ..
+      - name: Build zlib
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz
+          tar -xzf zlib-${ZLIB_VERSION}.tar.gz
+          cd zlib-${ZLIB_VERSION}
+          ./configure --prefix="${LBPM_ZLIB_DIR}"
+          make -j
+          make install
 
-    - name: configure cmake
-      run: |
-        mkdir build
-        cd build
-        cmake \
-        -D USE_SILO=0                       \
-        -D USE_TIMER=0 \
-        -D USE_CUDA=0 && \
-        -D CMAKE_BUILD_TYPE:STRING=Release          \
-        -D CMAKE_C_COMPILER:PATH=$MPI_DIR/bin/mpicc              \
-        -D CMAKE_CXX_COMPILER:PATH=$MPI_DIR/bin/mpicxx           \
-        -D MPI_CXX_COMPILER=$MPI_DIR/bin/mpicxx            \
-        -D CMAKE_C_FLAGS="-fPIC"                    \
-        -D CMAKE_CXX_FLAGS="-fPIC"                  \
-        -D CMAKE_CXX_STD=14                         \
-        -D TEST_MAX_PROCS=1    \
-        -D HDF5_DIRECTORY=$LBPM_HDF5_DIR         \
-        -D USE_CUDA=0                               \
-        $GITHUB_WORKSPACE/LBPM
+      - name: Build HDF5 (parallel)
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          wget -q https://sourceforge.net/projects/hdf5.mirror/files/hdf5_${HDF5_VERSION}/hdf5-${HDF5_VERSION}.tar.gz/download -O hdf5-${HDF5_VERSION}.tar.gz
+          tar -xzf hdf5-${HDF5_VERSION}.tar.gz
+          cd hdf5-${HDF5_VERSION}
+          CC="${MPI_DIR}/bin/mpicc" CXX="${MPI_DIR}/bin/mpicxx" CXXFLAGS="-fPIC -O3 -std=c++14" \
+            ./configure --prefix="${LBPM_HDF5_DIR}" --enable-parallel --enable-shared --with-zlib="${LBPM_ZLIB_DIR}"
+          make -j
+          make install
+      
+      # Ensure the cached/restored MPI is on PATH
+      - name: Add MPI to PATH
+        run: echo "${MPI_DIR}/bin" >> $GITHUB_PATH          
+
+      - name: Configure CMake
+        run: |
+          cmake -S LBPM -B build \
+            -D USE_SILO=0 \
+            -D USE_TIMER=0 \
+            -D USE_CUDA=0 \
+            -D CMAKE_BUILD_TYPE=Release \
+            -D CMAKE_C_COMPILER:PATH="${MPI_DIR}/bin/mpicc" \
+            -D CMAKE_CXX_COMPILER:PATH="${MPI_DIR}/bin/mpicxx" \
+            -D MPI_CXX_COMPILER="${MPI_DIR}/bin/mpicxx" \
+            -D CMAKE_C_FLAGS="-fPIC" \
+            -D CMAKE_CXX_FLAGS="-fPIC" \
+            -D CMAKE_CXX_STD=14 \
+            -D TEST_MAX_PROCS=1 \
+            -D HDF5_DIRECTORY="${LBPM_HDF5_DIR}"
  
-    - name: build and make
-      run: |
-        cd build
-        make
-        sudo make install
-        cd ..
-        
-    - name: tests
-      run: |
-        cd build
-        ctest
+      - name: build and make
+        run: |
+          cd build
+          make install
+          
+      - name: tests
+        run: |
+          cd build
+          ctest --test-dir build --output-on-failure
