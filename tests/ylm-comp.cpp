@@ -13,8 +13,6 @@ using namespace std;
 #include "../fm/fm_types.hpp"
 #include "../fm/fm_method.hpp"
 
-// #include "../fm/fm_numbers.hpp"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

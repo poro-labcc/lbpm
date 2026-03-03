@@ -21,12 +21,6 @@ using namespace std;
 #include "fm_component_labeling.hpp"
 #include "fm_types.hpp"
 
-// #include "file_uti.hpp"
-// #include "true_time.hpp"
-// #include "dataFileReader.hpp" NOT NEEDED ANYMORE
-
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -37,19 +31,10 @@ using namespace std;
 #include "../common/Domain.h"
 #include "../analysis/distance.h"
 
-typedef Array<int> IntArray; //int32, LBPM type
-// typedef Array<int16_t> IntArray; 
+typedef Array<int> IntArray;
 typedef Array<bool> BoolArray;
-
 typedef vector< vector<int> > MTvvi;
 
-
-
-
-
-
-// -----------------------------------------------------------------------------
-// Class
 class Full_Morphology{
   public:
   
@@ -62,9 +47,7 @@ class Full_Morphology{
     
     
   public:
-  
-    //int  _nthreads;
-  
+
     int _ny, _nx, _nz;                                  // Work dimensions (with reservoirs, if any)
     int dimy, dimx, dimz;                               // Original dimensions
     int _NP;                                            // Porous pixels
@@ -147,7 +130,6 @@ class Full_Morphology{
     _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
     _saveImg = fm_db->getScalar<bool>("SaveImage");
 
-    // _compressible = fm_db->getScalar<bool>("Compressible");
     auto protocol = fm_db->getScalar<std::string>("protocol");
     if(protocol == "micp") _compressible=true; else if (protocol == "drainage") _compressible = false; else abort_fm("Invalid protocol. Chose between 'micp' or 'drainage'.")
 
