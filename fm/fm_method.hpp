@@ -76,31 +76,14 @@ class Full_Morphology{
     IntArray _matrix1, _matrix2;
     IntArray _mx_edt1, _mx_edt2;
     IntArray _edt;   
-
-    // Int16Array _final_map;                                // Output matrix  
-    // Int16Array _mmorig;                                   // Original image, used for reference
-    // Int16Array _mm;                                       // Work image, modified during the simulation
-    // Int16Array _matrix1, _matrix2;
-    // Int16Array _mx_edt1, _mx_edt2;
-    // Int16Array _edt;   
-
-    
+  
     BoolArray _trapped;            
                                    
   };
   
-  //------------------------------------------------------------------------------
-  // Description:
-  //   Constructor
-  //   Reads config and image file.
-  //   Initializes class parameters.
-  // INPUT:
-  //   config => config file name
-  //------------------------------------------------------------------------------
+
   Full_Morphology::Full_Morphology( int argc, char *argv[] ){
 
-
-    char LocalRankFilename[40];
     string filename;
     double Rcrit_new;
     filename=argv[1];
@@ -118,6 +101,7 @@ class Full_Morphology{
     
     auto ReadValues = domain_db->getVector<int>("ReadValues");
     auto WriteValues = domain_db->getVector<int>("WriteValues");
+
     _S = 0;
     _O = 1;
     _I = 2;
@@ -131,102 +115,90 @@ class Full_Morphology{
     _saveImg = fm_db->getScalar<bool>("SaveImage");
 
     auto protocol = fm_db->getScalar<std::string>("protocol");
-    if(protocol == "micp") _compressible=true; else if (protocol == "drainage") _compressible = false; else abort_fm("Invalid protocol. Chose between 'micp' or 'drainage'.")
+    if(protocol == "micp") _compressible=true; 
+    else if (protocol == "drainage") _compressible = false; 
+    else {
+              ERROR("Error: Invalid protocol. Chose between 'micp' or 'drainage'. \n");
+      }
 
-    if(fm_db->keyExists("Surround")){
-      _all_faces = fm_db->getScalar<bool>("Surround");
-    } else{_all_faces = _compressible;}
-    
-    if (!_all_faces) {
-        auto direction = fm_db->getVector<int>("Direction");
-        _iX = false;
-        _iY = false;
-        _iZ = false;
-        _iM = false;
-        _iP = false;
-        
-        if (direction[0] != 0 && direction[1] == 0 && direction[2] == 0) {
-            _iX = true;
-            if (direction[0] > 0) {
-                _iP = true;
-            } else {
-                _iM = true;
-            }
-        } else if (direction[1] != 0 && direction[0] == 0 && direction[2] == 0) {
-            _iY = true;
-            if (direction[1] > 0) {
-                _iP = true;
-            } else {
-                _iM = true;
-            }
-        } else if (direction[2] != 0 && direction[0] == 0 && direction[1] == 0) {
-            _iZ = true;
-            if (direction[2] > 0) {
-                _iP = true;
-            } else {
-                _iM = true;
-            }
-        } else {
-            abort_fm("Unkonwn direction. Only one direction is allowed.");
-        }
-    } else {
-        cout << "Surround selected. Direction is disconsidered. " << endl;
-        _iX = false;
-        _iY = false;
-        _iZ = false;
-        _iM = false;
-        _iP = true;
+    auto direction = fm_db->getScalar<std::string>("direction");
 
-        if(_nz > 1)
-            _iZ = true;
-        else if(_ny > 1)
-            _iY = true;
-        else if(_nx > 1)
-            _iX = true;
+    _iX = _iY = _iZ = _iM = _iP = false;     
+    _all_faces = _compressible;
+
+    if (direction == "+x") {
+      _iP = true; _iX = true;
+    } 
+    else if (direction == "-x") {
+      _iM = true; _iX = true;
     }
-    
+    else if (direction == "+y") {
+      _iP = true; _iY = true;
+    }
+    else if (direction == "-y") {
+      _iM = true; _iY = true;
+    }
+    else if (direction == "+z") {
+      _iP = true; _iZ = true;      
+    }
+    else if (direction == "-z") {
+      _iM = true; _iZ = true;
+    }
+    else if (direction == "surround") {
+      _all_faces = true;
+      _iP = true;
+      if(_nz > 1) _iZ = true;
+      else if(_ny > 1) _iY = true;
+      else if(_nx > 1) _iX = true; 
+    }
+    else ERROR("Error: Unkonwn directions, please select '+x', '-x', '+y', '-y', '+z', '-z' or 'surround' ");
+      
     auto diameters = fm_db->getVector<int>("Diameters");
-    for (int dd = diameters[0]; dd <= diameters[1]; dd += diameters[2]) {
+    for (auto dd = diameters[0]; dd <= diameters[1]; dd += diameters[2]) {
         _d.push_back(dd);
     }
-       sort( _d.begin(), _d.end() );
-    
-       MTvi::iterator it = unique( _d.begin(), _d.end() );
-       _d.resize( distance( _d.begin(),it ) );
-     
-       if( _d.size()==0 )
-       abort_fm("It was impossible to create diameters array.");
-     
-      reverse( _d.begin(), _d.end() );
+
+    sort( _d.begin(), _d.end() );
+
+    MTvi::iterator it = unique( _d.begin(), _d.end() );
+    _d.resize( distance( _d.begin(),it ) );
   
-    
- 
+    if( _d.size()==0 )
+    ERROR("Error: It was impossible to create diameters array. ");  
+    reverse( _d.begin(), _d.end() );
   
-    // Adds reservoirs where needed
+    // Resize for adding reservoirs
     int x0=0, y0=0, z0=0;
     int xM=_nx, yM=_ny, zM=_nz;
     dimx = _nx; dimy = _ny; dimz = _nz; 
   
-  
-
-    if(!_all_faces){
-    if     ( _iX ){ _nx += 2;   x0++;   xM = _nx-1; }
-    else if( _iY ){ _ny += 2;   y0++;   yM = _ny-1; }
-    else if( _iZ ){ _nz += 2;   z0++;   zM = _nz-1; }
-    // ---------------------------------------------------------------------------
+    if(!_all_faces) {
+        if ( _iX ) { 
+          _nx += 2;   x0++;   xM = _nx-1; 
+        }
+        else if( _iY ) { 
+          _ny += 2;   y0++;   yM = _ny-1; 
+        }
+        else if( _iZ ) { 
+          _nz += 2;   z0++;   zM = _nz-1; 
+        }
     }
     else {
-      if( _nx>1 ){ _nx+=2;  x0++;  xM++; }
-      if( _ny>1 ){ _ny+=2;  y0++;  yM++; }
-      if( _nz>1 ){ _nz+=2;  z0++;  zM++; }
+        if( _nx>1 ) {
+           _nx+=2;  x0++;  xM++; 
+        }
+        if( _ny>1 ) {
+           _ny+=2;  y0++;  yM++; 
+        }
+        if( _nz>1 ) {
+           _nz+=2;  z0++;  zM++; 
+        }
     }
   
-
-
     int iaux=-1;
-    if     ( _iX ){ iaux=_nx-1; }
-    else if( _iY ){ iaux=_ny-1; }
-    else if( _iZ ){ iaux=_nz-1; }
+    if     ( _iX ) iaux=_nx-1; 
+    else if( _iY ) iaux=_ny-1; 
+    else if( _iZ ) iaux=_nz-1; 
   
     if( _iP ){
       _chamber_i =    0;
@@ -235,58 +207,41 @@ class Full_Morphology{
       _chamber_i = iaux;
       _chamber_o =    0;
     }
-    // ---------------------------------------------------------------------------
-   
-  
-  
-  
-    // ---------------------------------------------------------------------------
-      _mmorig.resize(_nx, _ny, _nz);
-      _mm.resize(_nx, _ny, _nz);
-      _edt.resize(_nx, _ny, _nz);
-      _matrix1.resize(_nx, _ny, _nz);
-      _matrix2.resize(_nx, _ny, _nz);
-      _mx_edt1.resize(_nx, _ny, _nz);
-      _mx_edt2.resize(_nx, _ny, _nz);
-      _trapped.resize(_nx, _ny, _nz);
-      _final_map.resize(_nx, _ny, _nz);
 
-    // -------------------------------- OLD -------------------------------
-
-    // MTci N3 = _nx*_ny*_nz;
-    // MTci max_eq = static_cast<int> ( ceil( static_cast<double>(N3)/2.0 ) );
-
-    //--------------------------------- NEW -------------------------------
+    _mmorig.resize(_nx, _ny, _nz);
+    _mm.resize(_nx, _ny, _nz);
+    _edt.resize(_nx, _ny, _nz);
+    _matrix1.resize(_nx, _ny, _nz);
+    _matrix2.resize(_nx, _ny, _nz);
+    _mx_edt1.resize(_nx, _ny, _nz);
+    _mx_edt2.resize(_nx, _ny, _nz);
+    _trapped.resize(_nx, _ny, _nz);
+    _final_map.resize(_nx, _ny, _nz);
 
     size_t N3 = static_cast<size_t>(_nx) * static_cast<size_t>(_ny) * static_cast<size_t>(_nz);
     size_t max_eq = static_cast<size_t>(ceil(static_cast<double>(N3) / 2.0));
 
-    //---------------------------------------------------------------------
-
     _tail.resize(max_eq);
     _next.resize( max_eq );
     _rtable.resize( max_eq );
-    // ---------------------------------------------------------------------------
-   
-    // ---------------------------------------------------------------------------
-    // Inicializes reservoir
 
-  if(_all_faces) {surround(_mm, _I);}
-    
-    else{ //turn it into a function?
-    // x invasion
+  if(_all_faces) {
+    if (_nx > 1) for(int z=0; z<_nz; z++) for(int y=0; y<_ny; y++) { _mm(0,y,z) = _I; _mm(_nx-1,y,z) = _I; }
+    if (_ny > 1) for(int z=0; z<_nz; z++) for(int x=0; x<_nx; x++) { _mm(x,0,z) = _I; _mm(x,_ny-1,z) = _I; }
+    if (_nz > 1) for(int y=0; y<_ny; y++) for(int x=0; x<_nx; x++) { _mm(x,y,0) = _I; _mm(x,y,_nz-1) = _I; }
+  }
+  else { 
     if( _iX ){
       for( int z=0; z<_nz; z++ ){
       for( int y=0; y<_ny; y++ ){
         _trapped(_chamber_i,y,z) = false;
-        _trapped(_chamber_o,y,z) = false;
-        
+        _trapped(_chamber_o,y,z) = false;        
         _mm(_chamber_i,y,z) =_I;
         _mm(_chamber_o,y,z) =_O;
       }}
       
     // y invasion
-    }else if( _iY ){
+    } else if( _iY ){
       for( int z=0; z<_nz; z++ ){
       for( int x=0; x<_nx; x++ ){
         _trapped(x,_chamber_i,z) = false;
