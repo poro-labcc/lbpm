@@ -46,7 +46,7 @@ inline bool operator<(const Vec &l, const Vec &r) {
 template <class TYPE>
 void CalcDist(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
               const std::array<bool, 3> &periodic = {true, true, true},
-              const std::array<double, 3> &dx = {1, 1, 1});
+              const std::array<double, 3> &dx = {1, 1, 1}, bool center =  false);
 
 /*!
  * @brief  Calculate the distance using a simple method
@@ -59,6 +59,6 @@ void CalcDist(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
  */
 void CalcVecDist(Array<Vec> &Distance, const Array<int> &ID, const Domain &Dm,
                  const std::array<bool, 3> &periodic = {true, true, true},
-                 const std::array<double, 3> &dx = {1, 1, 1});
+                 const std::array<double, 3> &dx = {1, 1, 1}, bool center = false);
 
 #endif

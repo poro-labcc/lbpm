@@ -268,7 +268,7 @@ class Full_Morphology{
 
     std::ifstream FRAW(mmfile);
     if (!FRAW.is_open()) {
-        abort_fm("It was impossible to open/create the file " + mmfile);
+        ERROR("It was impossible to open/create the file " + mmfile);
     }
     unsigned char auxraw;
     int pc;
@@ -291,8 +291,8 @@ class Full_Morphology{
         }
       
       if(write_value_aux != _I && write_value_aux != _S && write_value_aux != _O){
-        // abort_fm("Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
-        abort_fm(
+        // ERROR("Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
+        ERROR(
                   std::string("Unknown color in (")
                   + std::to_string(x) + ", "
                   + std::to_string(y) + ", "
@@ -381,7 +381,7 @@ class Full_Morphology{
   //------------------------------------------------------------------------------
   int Full_Morphology::diameter( MTci &step ){
     if( step<0 || step>=_d.size() )
-      abort_fm( "Invalid step value." );
+      ERROR( "Invalid step value." );
     return _d[step];
   }
   

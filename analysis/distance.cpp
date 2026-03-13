@@ -22,7 +22,7 @@
 template <class TYPE>
 void CalcDist(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
               const std::array<bool, 3> &periodic,
-              const std::array<double, 3> &dx) {
+              const std::array<double, 3> &dx, bool center) {
     ASSERT(Distance.size() == ID.size());
     std::array<int, 3> n = {Dm.Nx - 2, Dm.Ny - 2, Dm.Nz - 2};
     fillHalo<int> fillData(Dm.Comm, Dm.rank_info, n, {1, 1, 1}, 50, 1,
@@ -32,7 +32,7 @@ void CalcDist(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
     for (size_t i = 0; i < ID.length(); i++)
         id(i) = ID(i) == 0 ? -1 : 1;
     fillData.fill(id);
-    CalcVecDist(vecDist, id, Dm, periodic, dx);
+    CalcVecDist(vecDist, id, Dm, periodic, dx, center);
     for (size_t i = 0; i < Distance.length(); i++)
         Distance(i) = id(i) * vecDist(i).norm();
 }
@@ -42,11 +42,11 @@ void CalcDist(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
 * Initialize cells adjacent to boundaries                         *
 ******************************************************************/
 static void calcVecInitialize(Array<Vec> &d, const Array<int> &ID, double dx,
-                              double dy, double dz) {
+                              double dy, double dz, bool center) {
     d.fill(Vec(1e50, 1e50, 1e50));
-    const double dx0 = 0.5 * dx;
-    const double dy0 = 0.5 * dy;
-    const double dz0 = 0.5 * dz;
+    const double dx0 = (center ? 1.0 : 0.5 ) * dx;
+    const double dy0 = (center ? 1.0 : 0.5 ) * dy;
+    const double dz0 = (center ? 1.0 : 0.5 ) * dz;
     //const double dxy0 = 0.25*sqrt( dx*dx + dy*dy );
     //const double dxz0 = 0.25*sqrt( dx*dx + dz*dz );
     //const double dyz0 = 0.25*sqrt( dy*dy + dz*dz );
@@ -73,18 +73,6 @@ static void calcVecInitialize(Array<Vec> &d, const Array<int> &ID, double dx,
                     d(i, j, k) = Vec(0, 0, dz0);
                 if (z[1])
                     d(i, j, k) = Vec(0, 0, -dz0);
-                /*if ( x[0] && y[0] )  d(i,j,k) = Vec( dxy0, dxy0, 0 );
-                if ( x[0] && y[1] )  d(i,j,k) = Vec( dxy0, -dxy0, 0 );
-                if ( x[1] && y[0] )  d(i,j,k) = Vec( -dxy0, dxy0, 0 );
-                if ( x[1] && y[1] )  d(i,j,k) = Vec( -dxy0, -dxy0, 0 );
-                if ( x[0] && z[0] )  d(i,j,k) = Vec( dxz0, 0, dxz0 ); 
-                if ( x[0] && z[1] )  d(i,j,k) = Vec( dxz0, 0, -dxz0 );
-                if ( x[1] && z[0] )  d(i,j,k) = Vec( -dxz0, 0, dxz0 );
-                if ( x[1] && z[1] )  d(i,j,k) = Vec( -dxz0, 0, -dxz0 );
-                if ( y[0] && z[0] )  d(i,j,k) = Vec( 0, dyz0, dyz0 );
-                if ( y[0] && z[1] )  d(i,j,k) = Vec( 0, dyz0, -dyz0 );
-                if ( y[1] && z[0] )  d(i,j,k) = Vec( 0, -dyz0, dyz0 );
-                if ( y[1] && z[1] )  d(i,j,k) = Vec( 0, -dyz0, -dyz0 );*/
             }
         }
     }
@@ -148,7 +136,7 @@ static double calcVecUpdateInterior(Array<Vec> &d, double dx, double dy,
 ******************************************************************/
 void CalcVecDist(Array<Vec> &d, const Array<int> &ID0, const Domain &Dm,
                  const std::array<bool, 3> &periodic,
-                 const std::array<double, 3> &dx) {
+                 const std::array<double, 3> &dx, bool center ) {
     std::array<int, 3> N = {Dm.Nx, Dm.Ny, Dm.Nz};
     std::array<int, 3> n = {Dm.Nx - 2, Dm.Ny - 2, Dm.Nz - 2};
     // Create ID with ghosts
@@ -181,7 +169,7 @@ void CalcVecDist(Array<Vec> &d, const Array<int> &ID0, const Domain &Dm,
     fillHalo<Vec> fillData(Dm.Comm, Dm.rank_info, n, {1, 1, 1}, 50, 1,
                            {true, false, false}, periodic);
     // Calculate the local distances
-    calcVecInitialize(d, ID, dx[0], dx[1], dx[2]);
+    calcVecInitialize(d, ID, dx[0], dx[1], dx[2], center);
     double err = 1e100;
     double tol = 0.5 * std::min(std::min(dx[0], dx[1]), dx[2]);
     for (int it = 0; it <= 50 && err > tol; it++) {
@@ -204,7 +192,7 @@ void CalcVecDist(Array<Vec> &d, const Array<int> &ID0, const Domain &Dm,
 // Explicit instantiations
 template void CalcDist<float>(Array<float> &, const Array<char> &,
                               const Domain &, const std::array<bool, 3> &,
-                              const std::array<double, 3> &);
+                              const std::array<double, 3> &, bool);
 template void CalcDist<double>(Array<double> &, const Array<char> &,
                                const Domain &, const std::array<bool, 3> &,
-                               const std::array<double, 3> &);
+                               const std::array<double, 3> &, bool);

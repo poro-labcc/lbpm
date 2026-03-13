@@ -9,7 +9,7 @@
 #include <iostream>
 using namespace std;
 
-#include "../fm/fm_abort.hpp"
+#include "../common/UtilityMacros.h"
 #include "../fm/fm_types.hpp"
 #include "../fm/fm_method.hpp"
 
@@ -34,7 +34,7 @@ using namespace std;
 
 int main( int argc, char *argv[] ){
 
-  if( argc!=2 ) abort_fm("Wrong number of parameters.");
+  if( argc!=2 ) ERROR("Wrong number of parameters.");
   Full_Morphology fm( argc, argv );
   
   MTci nsteps = fm.Ndiam();
@@ -49,7 +49,6 @@ int main( int argc, char *argv[] ){
 
   return 0;
 }
-
 
 
 
