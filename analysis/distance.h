@@ -35,6 +35,20 @@ inline bool operator<(const Vec &l, const Vec &r) {
 }
 
 /*!
+ * @brief  Calculate the distance (classic EDT from background) using a simple method
+ * @details  This routine calculates the vector distance to the nearest domain surface.
+ * @param[out] Distance     Distance function
+ * @param[in] ID            Segmentation id
+ * @param[in] Dm            Domain information
+ * @param[in] periodic      Directions that are periodic
+ * @param[in] dx            Cell size
+ */
+
+template <class TYPE>
+void CalcClassicEDT(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
+              const std::array<bool, 3> &periodic,
+              const std::array<double, 3> &dx);
+/*!
  * @brief  Calculate the distance using a simple method
  * @details  This routine calculates the vector distance to the nearest domain surface.
  * @param[out] Distance     Distance function
@@ -59,6 +73,6 @@ void CalcDist(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
  */
 void CalcVecDist(Array<Vec> &Distance, const Array<int> &ID, const Domain &Dm,
                  const std::array<bool, 3> &periodic = {true, true, true},
-                 const std::array<double, 3> &dx = {1, 1, 1}, bool center = false);
+                 const std::array<double, 3> &dx = {1, 1, 1});
 
 #endif
