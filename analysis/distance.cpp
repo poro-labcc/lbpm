@@ -50,14 +50,14 @@ void CalcClassicEDT(Array<TYPE> &Distance, const Array<char> &ID, const Domain &
     for (size_t i = 0; i < ID.length(); i++)
         id(i) = ID(i) == 0 ? -1 : 1;
     fillData.fill(id);
-    CalcVecDist(vecDist, id, Dm, periodic, dx);
+    CalcVecDist(vecDist, id, Dm, periodic, dx, 2);
     for (size_t i = 0; i < Distance.length(); i++)
     {
         Vec d = vecDist(i);
         int x = d.x, y = d.y, z = d.z;
-//        x +=  ((int) (2*d.x) - 2*x);
-  //      y +=  ((int) (2*d.y) - 2*y);
-    //    z +=  ((int) (2*d.z) - 2*z);
+        x +=  ((int) (2*d.x) - 2*x);
+        y +=  ((int) (2*d.y) - 2*y);
+        z +=  ((int) (2*d.z) - 2*z);
         Distance(i) = ID(i) * (x*x + y*y + z*z);
     }
 }
@@ -67,7 +67,7 @@ void CalcClassicEDT(Array<TYPE> &Distance, const Array<char> &ID, const Domain &
 * Initialize cells adjacent to boundaries                         *
 ******************************************************************/
 static void calcVecInitialize(Array<Vec> &d, const Array<int> &ID, double dx,
-                              double dy, double dz) {
+                              double dy, double dz, int kernel) {
     d.fill(Vec(1e50, 1e50, 1e50));
     const double dx0 = 0.5 * dx;
     const double dy0 = 0.5 * dy;
@@ -76,25 +76,194 @@ static void calcVecInitialize(Array<Vec> &d, const Array<int> &ID, double dx,
     int Nx = d.size(0);
     int Ny = d.size(1);
     int Nz = d.size(2);
+
+    Vec dis(0,0,0);
     for (int k = 1; k < Nz - 1; k++) {
         for (int j = 1; j < Ny - 1; j++) {
             for (int i = 1; i < Nx - 1; i++) {
                 int id = ID(i, j, k);
-                bool x[2] = {id != ID(i - 1, j, k), id != ID(i + 1, j, k)};
-                bool y[2] = {id != ID(i, j - 1, k), id != ID(i, j + 1, k)};
-                bool z[2] = {id != ID(i, j, k - 1), id != ID(i, j, k + 1)};
-                if (x[0])
-                    d(i, j, k) = Vec(dx0, 0, 0);
-                if (x[1])
-                    d(i, j, k) = Vec(-dx0, 0, 0);
-                if (y[0])
-                    d(i, j, k) = Vec(0, dy0, 0);
-                if (y[1])
-                    d(i, j, k) = Vec(0, -dy0, 0);
-                if (z[0])
-                    d(i, j, k) = Vec(0, 0, dz0);
-                if (z[1])
-                    d(i, j, k) = Vec(0, 0, -dz0);
+
+                if (id != ID(i - 1, j, k)) {
+                    dis = Vec(dx0, 0, 0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i + 1, j, k)) {
+                    dis = Vec(-dx0, 0, 0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i, j - 1, k)) {
+                    dis = Vec(0, dy0, 0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i, j + 1, k)) {
+                    dis = Vec(0, -dy0, 0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i, j, k - 1)) {
+                    dis = Vec(0, 0, dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i, j, k + 1)) {
+                    dis = Vec(0, 0, -dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                // Diagonais no plano XY
+                if (kernel > 1) {
+                    if (id != ID(i - 1, j - 1, k)) {
+                        dis = Vec(dx0, dy0, 0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i - 1, j + 1, k)) {
+                        dis = Vec(dx0, -dy0, 0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i + 1, j - 1, k))
+                    {
+                        dis = Vec(-dx0, dy0, 0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i + 1, j + 1, k))
+                    {
+                        dis = Vec(-dx0, -dy0, 0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    // Diagonais no plano YZ
+                    if (id != ID(i, j - 1, k - 1))
+                    {
+                        dis = Vec(0, dy0, dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i, j - 1, k + 1))
+                    {
+                        dis = Vec(0, dy0, -dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i, j + 1, k - 1))
+                    {
+                        dis = Vec(0, -dy0, dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i, j + 1, k + 1))
+                    {
+                        dis = Vec(0, -dy0, -dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+                    
+                    if (id != ID(i - 1, j, k - 1))
+                    {
+                        dis = Vec(dx0, 0, dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i - 1, j, k + 1))
+                    {
+                        dis = Vec(dx0, 0, -dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i + 1, j, k - 1))
+                    {
+                        dis = Vec(-dx0, 0, dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+
+                    if (id != ID(i + 1, j, k + 1))
+                    {
+                        dis = Vec(-dx0, 0, -dz0);
+                        if (dis.norm2() < d(i, j, k).norm2())
+                            d(i, j, k) = dis;
+                    }
+                }
+
+                if (kernel > 2)
+                {
+                // Diagonais 3D
+                if (id != ID(i - 1, j - 1, k - 1))
+                {
+                    dis = Vec(dx0, dy0, dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i - 1, j - 1, k + 1))
+                {
+                    dis = Vec(dx0, dy0, -dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i - 1, j + 1, k - 1))
+                {
+                    dis = Vec(dx0, -dy0, dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i - 1, j + 1, k + 1))
+                {
+                    dis = Vec(dx0, -dy0, -dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i + 1, j - 1, k - 1))
+                {
+                    dis = Vec(-dx0, dy0, dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i + 1, j - 1, k + 1))
+                {
+                    dis = Vec(-dx0, dy0, -dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i + 1, j + 1, k - 1))
+                {
+                    dis = Vec(-dx0, -dy0, dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+
+                if (id != ID(i + 1, j + 1, k + 1))
+                {
+                    dis = Vec(-dx0, -dy0, -dz0);
+                    if (dis.norm2() < d(i, j, k).norm2())
+                        d(i, j, k) = dis;
+                }
+                }
             }
         }
     }
@@ -158,7 +327,7 @@ static double calcVecUpdateInterior(Array<Vec> &d, double dx, double dy,
 ******************************************************************/
 void CalcVecDist(Array<Vec> &d, const Array<int> &ID0, const Domain &Dm,
                  const std::array<bool, 3> &periodic,
-                 const std::array<double, 3> &dx) {
+                 const std::array<double, 3> &dx, const int kernel) {
     std::array<int, 3> N = {Dm.Nx, Dm.Ny, Dm.Nz};
     std::array<int, 3> n = {Dm.Nx - 2, Dm.Ny - 2, Dm.Nz - 2};
     // Create ID with ghosts
@@ -191,7 +360,7 @@ void CalcVecDist(Array<Vec> &d, const Array<int> &ID0, const Domain &Dm,
     fillHalo<Vec> fillData(Dm.Comm, Dm.rank_info, n, {1, 1, 1}, 50, 1,
                            {true, false, false}, periodic);
     // Calculate the local distances
-    calcVecInitialize(d, ID, dx[0], dx[1], dx[2]);
+    calcVecInitialize(d, ID, dx[0], dx[1], dx[2], kernel);
     double err = 1e100;
     double tol = 0.5 * std::min(std::min(dx[0], dx[1]), dx[2]);
     for (int it = 0; it <= 50 && err > tol; it++) {
@@ -222,6 +391,7 @@ template void CalcDist<double>(Array<double> &, const Array<char> &,
 template void CalcClassicEDT<float>(Array<float> &, const Array<char> &,
                               const Domain &, const std::array<bool, 3> &,
                               const std::array<double, 3> &);
+
 template void CalcClassicEDT<double>(Array<double> &, const Array<char> &,
                                const Domain &, const std::array<bool, 3> &,
                                const std::array<double, 3> &);                               

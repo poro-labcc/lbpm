@@ -19,14 +19,13 @@ edt_lbpm =  io.readRAW(  "distance.raw", tuple( np.array( geo.shape ) + 2 ) , da
 
 fig, axes = plt.subplots(1, 3)  # 1 row, 2 columns
 
-z = 4
+z =1
 
-# axes[0].imshow(edt_scipy[z] )
-# axes[0].set_title("Scipy")
+axes[0].imshow(edt_scipy[z] )
+axes[0].set_title("Scipy")
 
-# diff = np.abs( edt_scipy - edt_lbpm[z] )
-# axes[1].imshow( edt_scipy[z] - edt_lbpm[z] *geo[z])
-# axes[1].set_title("Difference")
+axes[1].imshow(  50*np.round( np.abs(edt_scipy[z] - edt_lbpm[z])) )
+axes[1].set_title("Difference")
 
-# axes[2].imshow( edt_lbpm[z] )
-# axes[2].set_title("LBPM")
+axes[2].imshow( edt_lbpm[z] )
+axes[2].set_title("LBPM")
