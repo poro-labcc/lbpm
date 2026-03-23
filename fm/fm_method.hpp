@@ -18,7 +18,6 @@ using namespace std;
 
 #include "fm_geometry.hpp"
 #include "fm_component_labeling.hpp"
-#include "fm_types.hpp"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -168,9 +167,9 @@ class Full_Morphology{
     Full_Morphology( int, char *[] );
     
     int Ndiam (void) const { return _d.size(); }
-    int diameter( MTci & );
-  
-    void calc( MTci & );
+    int diameter( const int & );
+
+    void calc( const int & );
     
     
   public:
@@ -185,8 +184,8 @@ class Full_Morphology{
 
     double resolution;
     
-    MTvi _d;                                            // Diameters
-    MTvi _next, _tail, _rtable;
+    vector<int> _d;                                            // Diameters
+    vector<int> _next, _tail, _rtable;
 
     bool _compressible;                                 // Compressibility, set as true for MICP
     bool _iX, _iY, _iZ;                                 // Direction of invasion
@@ -235,7 +234,7 @@ class Full_Morphology{
     resolution = domain_db->getScalar<double>("voxel_length");
 
     auto READFILE = domain_db->getScalar<std::string>("Filename");
-    MTcs mmfile(READFILE);
+    const string mmfile(READFILE);
     
     _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
     _saveImg = fm_db->getScalar<bool>("SaveImage");
@@ -286,7 +285,7 @@ class Full_Morphology{
 
     sort( _d.begin(), _d.end() );
 
-    MTvi::iterator it = unique( _d.begin(), _d.end() );
+    vector<int>::iterator it = unique( _d.begin(), _d.end() );
     _d.resize( distance( _d.begin(),it ) );
   
     if( _d.size()==0 )
@@ -503,7 +502,7 @@ class Full_Morphology{
   // INPUT:
   //   step => Step number
   //------------------------------------------------------------------------------
-  int Full_Morphology::diameter( MTci &step ){
+  int Full_Morphology::diameter( const int &step ){
     if( step<0 || step>=_d.size() )
       ERROR( "Invalid step value." );
     return _d[step];
@@ -516,15 +515,15 @@ class Full_Morphology{
   // INPUT:
   //   step => current step number
   //------------------------------------------------------------------------------
-  void Full_Morphology::calc( MTci &step ){
+  void Full_Morphology::calc( const int &step ){
     int iaux;
     
     
-    MTci D = this->diameter(step);
-    MTcd D24 = D*D/4.0; 
+    const int D = this->diameter(step);
+    const double D24 = D*D/4.0;
   
     // Background and Foreground values for binary images
-    MTci B=0, F=1;
+    const int B=0, F=1;
   
   
     //----------------------------------------------------------------------------
@@ -781,7 +780,7 @@ class Full_Morphology{
       
       int ndig = max(_d[0],_d[_d.size()-1]);
       string saux = "invasion_diameters";
-      MTcs fraw = saux + ".raw";
+      const string fraw = saux + ".raw";
   
       FRAW = fopen64(fraw.c_str(), "wb");
     }

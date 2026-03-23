@@ -10,7 +10,6 @@
 using namespace std;
 
 #include "../common/UtilityMacros.h"
-#include "../fm/fm_types.hpp"
 #include "../fm/fm_method.hpp"
 
 #include <stdio.h>
@@ -37,10 +36,10 @@ int main( int argc, char *argv[] ){
   if( argc!=2 ) ERROR("Wrong number of parameters.");
   Full_Morphology fm( argc, argv );
   
-  MTci nsteps = fm.Ndiam();
+  const int nsteps = fm.Ndiam();
   for( int step=0; step<nsteps; step++ ){
     
-    MTci d = fm.diameter(step);
+    const int d = fm.diameter(step);
     cout << "Step " << step << ", D = " << d << " px." << endl;
     
     fm.calc(step);

@@ -11,19 +11,17 @@
 using namespace std;
 
 
-#include "fm_types.hpp"
-
-
 #include "../common/Array.h"
 typedef Array<int> IntArray;
 typedef Array<bool> BoolArray;
 
 
 
-void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
-                         MTvi &tail, MTvi &rtable );
-void merge( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
-void resolve( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
+void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> &next,
+                         vector<int> &tail, vector<int> &rtable );
+
+void merge( const int &, const int &, vector<int> &, vector<int> &, vector<int> & );
+void resolve( const int &, const int &, vector<int> &, vector<int> &, vector<int> & );
 
 
 
@@ -39,8 +37,8 @@ void resolve( MTci &, MTci &, MTvi &, MTvi &, MTvi & );
 //   F, B         => Foreground and Background
 //   next, tail, rtable => vector to work with equivalences information
 //------------------------------------------------------------------------------
-void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
-                         MTvi &tail, MTvi &rtable ){
+void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> &next,
+                         vector<int> &tail, vector<int> &rtable ){
 
   
   const int nx = IMG.size(0);
@@ -48,7 +46,7 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
   const int nz = IMG.size(2);
  
   int lx=0, nl=1;
-  MTvi uniq_labels(3);
+  vector<int> uniq_labels(3);
   int nuniq;
   
   
@@ -57,9 +55,9 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
   for( int z=0; z<nz; z++ ){
     if( IMG(x,y,z)==F ){
       
-      MTci lq = (x>0)?  IMG(x-1,y,z):B;
-      MTci lp = (y>0)?  IMG(x,y-1,z):B;
-      MTci lz = (z>0)?  IMG(x,y,z-1):B;
+      const int lq = (x>0)?  IMG(x-1,y,z):B;
+      const int lp = (y>0)?  IMG(x,y-1,z):B;
+      const int lz = (z>0)?  IMG(x,y,z-1):B;
 
       nuniq=0;
       if( lp!=B ){
@@ -143,7 +141,7 @@ void component_labeling( IntArray &IMG, MTci &F, MTci &B, MTvi &next,
 
 
 // He, Chao, Suzuki, 2008, page 752
-void merge( MTci &u, MTci &v, MTvi &next, MTvi &tail, MTvi &rtable ){
+void merge( const int &u, const int &v, vector<int> &next, vector<int> &tail, vector<int> &rtable ){
   for( int i=v; i!=-1;  ){
     rtable[i] = u;
     i = next[i];
@@ -153,9 +151,9 @@ void merge( MTci &u, MTci &v, MTvi &next, MTvi &tail, MTvi &rtable ){
 }
 
 // He, Chao, Suzuki, 2008, page 752
-void resolve( MTci &x, MTci &y, MTvi &next, MTvi &tail, MTvi &rtable ){
-  MTci u = rtable[x];
-  MTci v = rtable[y];
+void resolve( const int &x, const int &y, vector<int> &next, vector<int> &tail, vector<int> &rtable ){
+  const int u = rtable[x];
+  const int v = rtable[y];
   if     ( u<v ) merge( u, v, next, tail, rtable );
   else if( v<u ) merge( v, u, next, tail, rtable );
 }

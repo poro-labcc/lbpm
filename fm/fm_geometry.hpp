@@ -12,7 +12,6 @@
 #include <iostream>
 using namespace std;
 
-#include "fm_types.hpp"
 #include "common/Array.h"
 
 typedef Array<int> IntArray;   //LBPM TYPES
@@ -33,7 +32,7 @@ typedef Array<bool> BoolArray;
 // OUTPUT:
 //   m => Matrix is altered inside the function, so it returns by reference
 //------------------------------------------------------------------------------
-void walls( IntArray &m, MTci &S, MTcs &a ){
+void walls( IntArray &m, const int &S, const string &a ){
   const int nx = m.size(0);
   const int ny = m.size(1);
   const int nz = m.size(2);
@@ -73,7 +72,7 @@ void walls( IntArray &m, MTci &S, MTcs &a ){
 // OUTPUT:
 //   m => Matrix is altered inside the function, so it returns by reference
 //------------------------------------------------------------------------------
-void membrane( IntArray &m, MTci &S, MTci &fill, MTci &p, MTcs &a ){
+void membrane( IntArray &m, const int &S, const int &fill, const int &p, const string &a ){
   const int nx = m.size(0);
   const int ny = m.size(1);
   const int nz = m.size(2);
