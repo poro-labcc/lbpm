@@ -614,7 +614,7 @@ void Domain::Decomp(const std::string &Filename) {
                 printf("Reading 8-bit input data \n");
                 FILE *SEGDAT = fopen(Filename.c_str(), "rb");
                 if (SEGDAT == NULL)
-                    ERROR("Domain.cpp: Error reading segmented data");
+                    ERROR("Domain.cpp: Error opening domain file");
                 size_t ReadSeg;
                 ReadSeg = fread(SegData, 1, SIZE, SEGDAT);
                 if (ReadSeg != size_t(SIZE))

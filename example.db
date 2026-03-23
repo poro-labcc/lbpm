@@ -1,8 +1,8 @@
 Domain {
-   Filename = "single_sphere.raw"
-   ReadType = "8Bit"
-   N = 8, 8, 8            // domain size
-   n = 8, 8, 8
+   Filename = "sphere-pack-50c-uint8.raw"
+   ReadType = "8bit"
+   N = 50, 50, 50            // domain size
+   n = 50, 50, 50
    nproc = 1, 1, 1
    VoxelLabels = 0, 1, 2    // solid, expelled, injected
    ReadValues = 0, 1
@@ -16,6 +16,6 @@ FM {
    ImageRoot = "d0"             // name files
    ImageDir = "d0"              // folder in which data is saved
    SaveImage = true
-   Direction = 0, 0, 1          // axis of intrusion (accepts negative values)
+   direction = "+x"          // axis of intrusion (accepts negative values)
    protocol = "drainage"
 }

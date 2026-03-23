@@ -16,7 +16,6 @@
 #include <string>
 using namespace std;
 
-#include "fm_edt.hpp"
 #include "fm_geometry.hpp"
 #include "fm_component_labeling.hpp"
 #include "fm_types.hpp"
@@ -34,6 +33,134 @@ using namespace std;
 typedef Array<int> IntArray;
 typedef Array<bool> BoolArray;
 typedef vector< vector<int> > MTvvi;
+
+static inline float intersection(int q, int vk, float fq, float fvk)
+{
+        float qq = (float)q  * (float)q;
+        float vv = (float)vk * (float)vk;
+        return ((fq + qq) - (fvk + vv)) / (2.0 * ((float)q - (float)vk));
+}
+
+void edt_1d(const int *f, int *g, int n)
+{
+    int *v = (int *) malloc((size_t)n * sizeof(int));
+    float *z = (float *) malloc((size_t)(n + 1) * sizeof(float));
+
+    int k = 0;
+    v[0] = 0;
+    z[0] = -INFINITY;
+    z[1] =  INFINITY;
+
+    for (int q = 1; q < n; q++) {
+        float s;
+
+        while (1) {
+            int vk = v[k];
+            s = intersection(q,vk,f[q],f[vk]);
+
+            if (s <= z[k]) {
+                k--;
+                if (k < 0) {
+                    k = 0;
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        if (k == 0) {
+            int vk = v[k];
+            s = intersection(q,vk,f[q],f[vk]);
+
+            if (s <= z[k]) {
+                v[0] = q;
+                z[0] = -INFINITY;
+                z[1] =  INFINITY;
+                continue;
+            }
+        }
+
+        k++;
+        v[k] = q;
+        z[k] = s;
+        z[k + 1] = INFINITY;
+    }
+
+    k = 0;
+    for (int x = 0; x < n; x++) {
+        while (z[k + 1] < (float)x) {
+            k++;
+        }
+
+        int vk = v[k];
+        int dx = x - vk;
+        g[x] = dx * dx + f[vk];
+    }
+
+    free(v);
+    free(z);
+}
+
+void process_line(int* edt2, const size_t first, const size_t stride, int n)
+{
+
+            IntArray f(n);
+            IntArray g(n);
+
+            size_t pos = first;
+            for (int i = 0; i < n; i++) {
+                f(i) = edt2[pos];
+                pos += stride;
+            }
+
+            edt_1d(f.data(), g.data(), n);
+
+            pos = first;
+            for (int i = 0; i < n; i++) {
+                edt2[pos] = g(i);
+                pos += stride;
+            }
+}
+
+void edt_3d( unsigned char target, IntArray &image, IntArray &distance2)
+{
+
+    const int nx = image.size(0);
+    const int ny = image.size(1);
+    const int nz = image.size(2);
+
+    size_t nvox =  image.length();
+    int BIG = static_cast<float>(nx*nx + ny*ny + nz*nz) + 1;
+
+    int* img = image.data();
+    int* edt2 = distance2.data();
+
+    for (int i = 0; i < (int) nvox; i++) {
+        edt2[i] = (img[i] == target) ? 0.0 : BIG;
+    }
+
+    size_t maxdim = std::max( std::max(nz, ny), nx );
+
+    for (int z = 0; z < nz; z++) {
+        for (int y = 0; y < ny; y++) {
+            process_line( edt2 , nx * (y + z * ny) , 1, nx );
+        }
+    }
+
+    for (int z = 0; z < nz; z++) {
+        for (int x = 0; x < nx; x++) {
+            process_line( edt2 , z * nx * ny + x ,  nx, ny);
+        }
+    }
+
+    for (int y = 0; y < ny; y++) {
+        for (int x = 0; x < nx; x++) {
+            process_line( edt2 , y * nx + x , nx * ny, nz);
+        }
+    }
+}
+
 
 class Full_Morphology{
   public:
@@ -74,8 +201,7 @@ class Full_Morphology{
     IntArray _mmorig;                                   // Original image, used for reference
     IntArray _mm;                                       // Work image, modified during the simulation
     IntArray _matrix1, _matrix2;
-    IntArray _mx_edt1, _mx_edt2;
-    IntArray _edt;   
+    IntArray _edt;
   
     BoolArray _trapped;            
                                    
@@ -213,8 +339,6 @@ class Full_Morphology{
     _edt.resize(_nx, _ny, _nz);
     _matrix1.resize(_nx, _ny, _nz);
     _matrix2.resize(_nx, _ny, _nz);
-    _mx_edt1.resize(_nx, _ny, _nz);
-    _mx_edt2.resize(_nx, _ny, _nz);
     _trapped.resize(_nx, _ny, _nz);
     _final_map.resize(_nx, _ny, _nz);
 
@@ -342,7 +466,7 @@ class Full_Morphology{
     
     // ---------------------------------------------------------------------------
     // Calculates _mmorig EDT
-    euclidian_distance_transform( _S, _mmorig, _edt, _mx_edt1, _mx_edt2 );
+    edt_3d( _S, _mmorig, _edt);
     // ---------------------------------------------------------------------------
     
     // ---------------------------------------------------------------------------
@@ -471,7 +595,7 @@ class Full_Morphology{
     //----------------------------------------------------------------------------
     // Now, compute the EDT of the negative, treating the Foreground pixels as
     // Background. Compute the EDT of the image _matrix1 and store the result in _matrix2.
-    euclidian_distance_transform( F, _matrix1, _matrix2, _mx_edt1, _mx_edt2  );
+    edt_3d( F, _matrix1, _matrix2);
     //----------------------------------------------------------------------------
   
 

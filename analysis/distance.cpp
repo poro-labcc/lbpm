@@ -384,14 +384,11 @@ void CalcVecDist(Array<Vec> &d, const Array<int> &ID0, const Domain &Dm,
 template void CalcDist<float>(Array<float> &, const Array<char> &,
                               const Domain &, const std::array<bool, 3> &,
                               const std::array<double, 3> &);
+                              
 template void CalcDist<double>(Array<double> &, const Array<char> &,
                                const Domain &, const std::array<bool, 3> &,
                                const std::array<double, 3> &);
 
-template void CalcClassicEDT<float>(Array<float> &, const Array<char> &,
-                              const Domain &, const std::array<bool, 3> &,
-                              const std::array<double, 3> &);
-
-template void CalcClassicEDT<double>(Array<double> &, const Array<char> &,
+template void CalcClassicEDT<int>(Array<int> &, const Array<char> &,
                                const Domain &, const std::array<bool, 3> &,
                                const std::array<double, 3> &);                               

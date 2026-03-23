@@ -69,7 +69,7 @@ int main(int argc, char **argv)
 		nx+=2; ny+=2; nz+=2;
 
 		Array<char> id_solid(nx,ny,nz);
-		DoubleArray SignDist(nx,ny,nz);
+		IntArray SignDist(nx,ny,nz);
 
 		// Solve for the position of the solid phase
 		for (int k=0;k<nz;k++){
@@ -86,15 +86,6 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-		// Initialize the signed distance function
-		for (int k=0;k<nz;k++){
-			for (int j=0;j<ny;j++){
-				for (int i=0;i<nx;i++){
-					// Initialize distance to +/- 1
-					SignDist(i,j,k) = 2.0*double(id_solid(i,j,k))-1.0;
-				}
-			}
-		}
 
 		if (rank==0) printf("Initialized solid phase -- Converting to Signed Distance function \n");
 		CalcClassicEDT(SignDist,id_solid,*Dm);
@@ -102,7 +93,7 @@ int main(int argc, char **argv)
 		comm.barrier();
 
 		FILE *ID = fopen("distance.raw","wb");
-		fwrite(SignDist.data(),sizeof(double),nx*ny*nz,ID);
+		fwrite(SignDist.data(),sizeof(int),nx*ny*nz,ID);
 		fclose(ID);
 		
 		// write the geometry to a single file

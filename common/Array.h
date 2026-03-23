@@ -871,7 +871,10 @@ inline void Array<TYPE, FUN, Allocator>::copyTo(TYPE2 *data) const {
  *  Convience typedefs                                   *
  *  Copy array                                           *
  ********************************************************/
+typedef Array<bool> BoolArray;
+typedef Array<unsigned char> UCharArray;
 typedef Array<double> DoubleArray;
+typedef Array<float> FloatArray;
 typedef Array<int> IntArray;
 
 #endif

@@ -13,7 +13,7 @@
 using namespace std;
 
 #include "fm_types.hpp"
-
+#include "common/Array.h"
 
 typedef Array<int> IntArray;   //LBPM TYPES
 typedef Array<bool> BoolArray;

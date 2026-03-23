@@ -46,7 +46,7 @@ inline bool operator<(const Vec &l, const Vec &r) {
 
 template <class TYPE>
 void CalcClassicEDT(Array<TYPE> &Distance, const Array<char> &ID, const Domain &Dm,
-              const std::array<bool, 3> &periodic = {true, true, true},
+              const std::array<bool, 3> &periodic = {false, false, false},
               const std::array<double, 3> &dx = {1, 1, 1});
 /*!
  * @brief  Calculate the distance using a simple method
