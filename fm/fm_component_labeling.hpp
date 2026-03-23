@@ -1,31 +1,22 @@
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
 // 
-//  Function that performs the Component Labeling form He, Chao & Suzuki, 2011.
+//  Function that performs the Component Labeling from He, Chao & Suzuki, 2011.
 //
 //=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|=|
+
 #ifndef COMPONENT_LABELING
 #define COMPONENT_LABELING
-
 
 #include <iostream>
 using namespace std;
 
-
 #include "../common/Array.h"
-typedef Array<int> IntArray;
-typedef Array<bool> BoolArray;
-
-
 
 void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> &next,
                          vector<int> &tail, vector<int> &rtable );
 
 void merge( const int &, const int &, vector<int> &, vector<int> &, vector<int> & );
 void resolve( const int &, const int &, vector<int> &, vector<int> &, vector<int> & );
-
-
-
-
 
 
 //------------------------------------------------------------------------------
@@ -49,12 +40,12 @@ void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> 
   vector<int> uniq_labels(3);
   int nuniq;
   
-  
-  for( int x=0; x<nx; x++ ){
-  for( int y=0; y<ny; y++ ){
-  for( int z=0; z<nz; z++ ){
-    if( IMG(x,y,z)==F ){
-      
+  for( int z=0; z<nz; z++ ) {
+  for( int y=0; y<ny; y++ ) {
+  for( int x=0; x<nx; x++ ) {
+
+    if( IMG(x,y,z)==F )
+    {      
       const int lq = (x>0)?  IMG(x-1,y,z):B;
       const int lp = (y>0)?  IMG(x,y-1,z):B;
       const int lz = (z>0)?  IMG(x,y,z-1):B;
@@ -72,7 +63,6 @@ void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> 
         uniq_labels[nuniq] = lz;
         nuniq++;
       }
-
 
       switch( nuniq ){
     
@@ -124,21 +114,17 @@ void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> 
     }
   }}}
 
-
-
-
   // Changes old indexes by equivalent ones
-  for( int x=0; x<nx; x++ ){
-  for( int y=0; y<ny; y++ ){
   for( int z=0; z<nz; z++ ){
+  for( int y=0; y<ny; y++ ){
+  for( int x=0; x<nx; x++ ){
+  
     if( IMG(x,y,z)!=B )
       IMG(x,y,z) = rtable[ IMG(x,y,z) ];
   }}}
 
 
 }
-
-
 
 // He, Chao, Suzuki, 2008, page 752
 void merge( const int &u, const int &v, vector<int> &next, vector<int> &tail, vector<int> &rtable ){
