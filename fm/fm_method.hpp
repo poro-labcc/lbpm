@@ -210,10 +210,8 @@ class Full_Morphology{
   Full_Morphology::Full_Morphology( int argc, char *argv[] ){
 
     string filename;
-    double Rcrit_new;
-    filename=argv[1];
-    Rcrit_new=0.f; 
-    NULL_USE( Rcrit_new );
+    
+    filename=argv[1];  
 
     auto db = std::make_shared<Database>(filename);
     auto domain_db = db->getDatabase("Domain");
@@ -279,48 +277,51 @@ class Full_Morphology{
     else ERROR("Error: Unkonwn directions, please select '+x', '-x', '+y', '-y', '+z', '-z' or 'surround' ");
       
     auto diameters = fm_db->getVector<int>("Diameters");
-    for (auto dd = diameters[0]; dd <= diameters[1]; dd += diameters[2]) {
-        _d.push_back(dd);
+
+    int Ndiameters = (diameters[1] - diameters[0])/diameters[2] + 1;
+
+    if(  Ndiameters <= 0 ) {
+      ERROR("Error: It was impossible to create diameters array. ");  
     }
 
-    sort( _d.begin(), _d.end() );
+    _d.resize( Ndiameters );
 
-    vector<int>::iterator it = unique( _d.begin(), _d.end() );
-    _d.resize( distance( _d.begin(),it ) );
-  
-    if( _d.size()==0 )
-    ERROR("Error: It was impossible to create diameters array. ");  
-    reverse( _d.begin(), _d.end() );
-  
-    // Resize for adding reservoirs
-    int x0=0, y0=0, z0=0;
-    int xM=_nx, yM=_ny, zM=_nz;
+    for (int i = 0; i  < Ndiameters; i++)  {
+      _d[i] = diameters[1] - i * diameters[2];
+    }
+
+    std::vector<bool> iAxis = {_iX, _iY, _iZ };
+    std::vector<int>  r_ini = {0,0,0};
+    std::vector<int>  r_end = size;
+
     dimx = _nx; dimy = _ny; dimz = _nz; 
-  
-    if(!_all_faces) {
-        if ( _iX ) { 
-          _nx += 2;   x0++;   xM = _nx-1; 
-        }
-        else if( _iY ) { 
-          _ny += 2;   y0++;   yM = _ny-1; 
-        }
-        else if( _iZ ) { 
-          _nz += 2;   z0++;   zM = _nz-1; 
-        }
+    
+    // Add aditional layer for input/output reservoirs    
+    for  (int i = 0; i < 3; i++) {
+         if ( ( (iAxis[i] ) && (!_all_faces) ) || ( (size[i]>1) && (_all_faces) ) ) {
+            size[i] += 2;
+            r_ini[i] = 1;
+            r_end[i] = size[i] - 1;
+         }          
     }
-    else {
-        if( _nx>1 ) {
-           _nx+=2;  x0++;  xM++; 
-        }
-        if( _ny>1 ) {
-           _ny+=2;  y0++;  yM++; 
-        }
-        if( _nz>1 ) {
-           _nz+=2;  z0++;  zM++; 
-        }
-    }
-  
+
+    int x0 = r_ini[0] , y0 = r_ini[1]  , z0 =  r_ini[2];
+    int xM = r_end[0],  yM = r_end[1]  , zM =  r_end[2];
+
+    _nx = size[0];
+    _ny = size[1];
+    _nz = size[2];
+ 
+    _mmorig.resize(_nx, _ny, _nz);
+    _mm.resize(_nx, _ny, _nz);
+    _edt.resize(_nx, _ny, _nz);
+    _matrix1.resize(_nx, _ny, _nz);
+    _matrix2.resize(_nx, _ny, _nz);
+    _trapped.resize(_nx, _ny, _nz);
+    _final_map.resize(_nx, _ny, _nz);
+
     int iaux=-1;
+
     if     ( _iX ) iaux=_nx-1; 
     else if( _iY ) iaux=_ny-1; 
     else if( _iZ ) iaux=_nz-1; 
@@ -333,18 +334,9 @@ class Full_Morphology{
       _chamber_o =    0;
     }
 
-    _mmorig.resize(_nx, _ny, _nz);
-    _mm.resize(_nx, _ny, _nz);
-    _edt.resize(_nx, _ny, _nz);
-    _matrix1.resize(_nx, _ny, _nz);
-    _matrix2.resize(_nx, _ny, _nz);
-    _trapped.resize(_nx, _ny, _nz);
-    _final_map.resize(_nx, _ny, _nz);
+    size_t max_eq = ( _mmorig.length() + 1 )/ 2;
 
-    size_t N3 = static_cast<size_t>(_nx) * static_cast<size_t>(_ny) * static_cast<size_t>(_nz);
-    size_t max_eq = static_cast<size_t>(ceil(static_cast<double>(N3) / 2.0));
-
-    _tail.resize(max_eq);
+    _tail.resize( max_eq );
     _next.resize( max_eq );
     _rtable.resize( max_eq );
 
@@ -356,7 +348,7 @@ class Full_Morphology{
   else { 
     if( _iX ){
       for( int z=0; z<_nz; z++ ){
-      for( int y=0; y<_ny; y++ ){
+      for( int y=0; y<_ny; y++ ) {
         _trapped(_chamber_i,y,z) = false;
         _trapped(_chamber_o,y,z) = false;        
         _mm(_chamber_i,y,z) =_I;
@@ -432,9 +424,9 @@ class Full_Morphology{
 
     // Copies _mm into _mmorig and initializes _final_map
     _NP=0;
-    for( int z=0; z<_nz; z++ ){
-    for( int y=0; y<_ny; y++ ){
-    for( int x=0; x<_nx; x++ ){
+    for( int z=0; z<_nz; z++ ) {
+        for( int y=0; y<_ny; y++ ){
+             for( int x=0; x<_nx; x++ ) {
       iaux = _mm(x,y,z);
       if( iaux!=_S ) _NP++;
       _mmorig(x,y,z) = iaux;
