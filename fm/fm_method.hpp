@@ -16,7 +16,6 @@
 #include <string>
 using namespace std;
 
-#include "fm_geometry.hpp"
 #include "fm_component_labeling.hpp"
 
 #include <stdio.h>
@@ -32,6 +31,14 @@ using namespace std;
 typedef Array<int> IntArray;
 typedef Array<bool> BoolArray;
 typedef vector< vector<int> > MTvvi;
+
+template <typename TYPE>
+void setRegion( Array<TYPE> &A, TYPE value, int x0, int x1, int y0, int y1, int z0, int z1)
+{
+    for (int z = z0; z < z1; z++) for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) {
+        A(x,y,z) = value;
+    }   
+}
 
 static inline float intersection(int q, int vk, float fq, float fvk)
 {
@@ -320,6 +327,8 @@ class Full_Morphology{
     _trapped.resize(_nx, _ny, _nz);
     _final_map.resize(_nx, _ny, _nz);
 
+    _trapped.fill( false );
+
     int iaux=-1;
 
     if     ( _iX ) iaux=_nx-1; 
@@ -345,46 +354,49 @@ class Full_Morphology{
     if (_ny > 1) for(int z=0; z<_nz; z++) for(int x=0; x<_nx; x++) { _mm(x,0,z) = _I; _mm(x,_ny-1,z) = _I; }
     if (_nz > 1) for(int y=0; y<_ny; y++) for(int x=0; x<_nx; x++) { _mm(x,y,0) = _I; _mm(x,y,_nz-1) = _I; }
   }
-  else { 
-    if( _iX ){
-      for( int z=0; z<_nz; z++ ){
-      for( int y=0; y<_ny; y++ ) {
-        _trapped(_chamber_i,y,z) = false;
-        _trapped(_chamber_o,y,z) = false;        
-        _mm(_chamber_i,y,z) =_I;
-        _mm(_chamber_o,y,z) =_O;
-      }}
-      
-    // y invasion
-    } else if( _iY ){
-      for( int z=0; z<_nz; z++ ){
-      for( int x=0; x<_nx; x++ ){
-        _trapped(x,_chamber_i,z) = false;
-        _trapped(x,_chamber_o,z) = false;
-        
-        _mm(x,_chamber_i,z) =_I;
-        _mm(x,_chamber_o,z) =_O;
-      }}
-      
-    // z invasion
-    }else if( _iZ ){
-      for( int y=0; y<_ny; y++ ){
-      for( int x=0; x<_nx; x++ ){
-        _trapped(x,y,_chamber_i) = false;
-        _trapped(x,y,_chamber_o) = false;
-        
-        _mm(x,y,_chamber_i) = _I;
-        _mm(x,y,_chamber_o) = _O;
-      }}
-      
-    } }
+  else {     
+    // If injecting in a certain direction  then set the first and last faces as input/output
+    for (int i = 0; i < 3; i++)
+    {
+      int rMin[3] = {0,0,0};
+      int rMax[3] = {_nx,_ny,_nz};
+      if (iAxis[i])
+      {
+          rMin[i] = 0;
+          rMax[i] = rMin[i] + 1;
+          setRegion( _mm     , _iP ? _I : _O  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
 
-    //reads input geometry
+          rMin[i] = size[i] -1 ;
+          rMax[i] = rMin[i] + 1;
+          setRegion( _mm     , _iP ? _O : _I  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
+      }
+    }
+   }
+
+
+
+    // //reads input geometry
+    // FILE* rawFile = fopen( mmfile.c_str(), "r"); 
+    // if (rawFile == NULL) {
+    //   ERROR("Error openning the file " + mmfile);
+    // }
+      
+    // for( int z=z0; z<zM; z++ ) {
+    //   for( int y=y0; y<yM; y++ ) {
+    //     for( int x=x0; x<xM; x++ ) {
+    //          fread( readValue ,  sizeof(char), size_t count, rawFile);
+
+    //     }
+    //   }
+    // }
+    // fclose(rawFile);
+
 
     std::ifstream FRAW(mmfile);
     if (!FRAW.is_open()) {
         ERROR("It was impossible to open/create the file " + mmfile);
     }
+
     unsigned char auxraw;
     int pc;
 
@@ -392,8 +404,7 @@ class Full_Morphology{
     for( int z=z0; z<zM; z++ ){
     for( int y=y0; y<yM; y++ ){
     for( int x=x0; x<xM; x++ ){
-  
-      _trapped(x,y,z) = false;
+ 
       FRAW >> auxraw;
       pc = static_cast<int>( auxraw );
 
@@ -406,9 +417,8 @@ class Full_Morphology{
         }
       
       if(write_value_aux != _I && write_value_aux != _S && write_value_aux != _O){
-        // ERROR("Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
-        ERROR(
-                  std::string("Unknown color in (")
+        // ERROR( "Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
+        ERROR( std::string("Unknown color in (")
                   + std::to_string(x) + ", "
                   + std::to_string(y) + ", "
                   + std::to_string(z) + ")."
@@ -451,18 +461,10 @@ class Full_Morphology{
       _NP = _NP - discount;
     }
   
-    // ---------------------------------------------------------------------------
-  
-   
-    
-    // ---------------------------------------------------------------------------
     // Calculates _mmorig EDT
     edt_3d( _S, _mmorig, _edt);
-    // ---------------------------------------------------------------------------
-    
-    // ---------------------------------------------------------------------------
-    //Creates output file .csv and header
 
+    //Creates output file .csv and header
     bool WriteHeader = false;
     FILE *log_file = fopen("injection_output.csv", "r");
     if (log_file != NULL)
@@ -830,3 +832,4 @@ class Full_Morphology{
   
   
 #endif // FULL_MORPHOLOGY_HPP
+

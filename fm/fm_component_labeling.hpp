@@ -41,8 +41,8 @@ void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> 
   int nuniq;
   
   for( int z=0; z<nz; z++ ) {
-  for( int y=0; y<ny; y++ ) {
-  for( int x=0; x<nx; x++ ) {
+    for( int y=0; y<ny; y++ ) {
+      for( int x=0; x<nx; x++ ) {
 
     if( IMG(x,y,z)==F )
     {      
@@ -114,16 +114,14 @@ void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> 
     }
   }}}
 
-  // Changes old indexes by equivalent ones
-  for( int z=0; z<nz; z++ ){
-  for( int y=0; y<ny; y++ ){
-  for( int x=0; x<nx; x++ ){
+  // Update merged labels
+  int* img = IMG.data();
+
+  for (int n = 0; n < IMG.length(); n++ )  {
+    if (*img !=B ) *img = rtable[ *img ];
+    img++;
+  }
   
-    if( IMG(x,y,z)!=B )
-      IMG(x,y,z) = rtable[ IMG(x,y,z) ];
-  }}}
-
-
 }
 
 // He, Chao, Suzuki, 2008, page 752
@@ -136,7 +134,6 @@ void merge( const int &u, const int &v, vector<int> &next, vector<int> &tail, ve
   tail[u] = tail[v];
 }
 
-// He, Chao, Suzuki, 2008, page 752
 void resolve( const int &x, const int &y, vector<int> &next, vector<int> &tail, vector<int> &rtable ){
   const int u = rtable[x];
   const int v = rtable[y];
