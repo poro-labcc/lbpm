@@ -80,6 +80,7 @@ public:
     DoubleArray Velocity_x;
     DoubleArray Velocity_y;
     DoubleArray Velocity_z;
+    DoubleArray Pressure_f;
 
 private:
     Utilities::MPI comm;

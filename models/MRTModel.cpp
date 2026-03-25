@@ -107,6 +107,7 @@ void ScaLBL_MRTModel::SetDomain() {
     Velocity_x.resize(Nx, Ny, Nz);
     Velocity_y.resize(Nx, Ny, Nz);
     Velocity_z.resize(Nx, Ny, Nz);
+    Pressure_f.resize(Nx, Ny, Nz);
 
     for (int i = 0; i < Nx * Ny * Nz; i++)
         Dm->id[i] = 1; // initialize this way
@@ -328,6 +329,7 @@ void ScaLBL_MRTModel::Run() {
         //************************************************************************/
 
         if (timestep % ANALYSIS_INTERVAL == 0) {
+            // Calculate Macroscopic Velocity
             ScaLBL_D3Q19_Momentum_2nd_order(fq, Velocity, Np, Fx, Fy, Fz);
             ScaLBL_DeviceBarrier();
             comm.barrier();
@@ -472,6 +474,18 @@ void ScaLBL_MRTModel::VelocityField() {
 						*/
     vis_db = db->getDatabase("Visualization");
     if (vis_db->getWithDefault<bool>("write_silo", false)) {
+        // Calculate Final Macroscopic Velocity
+        ScaLBL_D3Q19_Momentum_2nd_order(fq, Velocity, Np, Fx, Fy, Fz);
+        ScaLBL_DeviceBarrier();
+        comm.barrier();
+        ScaLBL_Comm->RegularLayout(Map, &Velocity[0], Velocity_x);
+        ScaLBL_Comm->RegularLayout(Map, &Velocity[Np], Velocity_y);
+        ScaLBL_Comm->RegularLayout(Map, &Velocity[2 * Np], Velocity_z);
+        // Calculate Final Macroscopic Pressure
+        ScaLBL_D3Q19_Pressure(fq, Pressure, Np);
+        ScaLBL_DeviceBarrier();                     // Sync
+        comm.barrier();                             // Sync
+        ScaLBL_Comm->RegularLayout(Map, &Pressure[0   ], Pressure_f);  // Transform Pressure Field
 
         std::vector<IO::MeshDataStruct> visData;
         fillHalo<double> fillData(Dm->Comm, Dm->rank_info,
@@ -482,6 +496,7 @@ void ScaLBL_MRTModel::VelocityField() {
         auto VyVar = std::make_shared<IO::Variable>();
         auto VzVar = std::make_shared<IO::Variable>();
         auto SignDistVar = std::make_shared<IO::Variable>();
+        auto Press = std::make_shared<IO::Variable>();
 
         IO::initialize("", format, "false");
         // Create the MeshDataStruct
@@ -495,7 +510,6 @@ void ScaLBL_MRTModel::VelocityField() {
         SignDistVar->dim = 1;
         SignDistVar->data.resize(Dm->Nx - 2, Dm->Ny - 2, Dm->Nz - 2);
         visData[0].vars.push_back(SignDistVar);
-
         VxVar->name = "Velocity_x";
         VxVar->type = IO::VariableType::VolumeVariable;
         VxVar->dim = 1;
@@ -511,21 +525,29 @@ void ScaLBL_MRTModel::VelocityField() {
         VzVar->dim = 1;
         VzVar->data.resize(Dm->Nx - 2, Dm->Ny - 2, Dm->Nz - 2);
         visData[0].vars.push_back(VzVar);
+        Press->name = "Pressure";
+        Press->type = IO::VariableType::VolumeVariable;
+        Press->dim = 1;
+        Press->data.resize(Dm->Nx - 2, Dm->Ny - 2, Dm->Nz - 2);
+        visData[0].vars.push_back(Press);
 
         Array<double> &SignData = visData[0].vars[0]->data;
         Array<double> &VelxData = visData[0].vars[1]->data;
         Array<double> &VelyData = visData[0].vars[2]->data;
         Array<double> &VelzData = visData[0].vars[3]->data;
+        Array<double> &PressData = visData[0].vars[4]->data;
 
         ASSERT(visData[0].vars[0]->name == "SignDist");
         ASSERT(visData[0].vars[1]->name == "Velocity_x");
         ASSERT(visData[0].vars[2]->name == "Velocity_y");
         ASSERT(visData[0].vars[3]->name == "Velocity_z");
+        ASSERT(visData[0].vars[4]->name == "Pressure");
 
         fillData.copy(Distance, SignData);
         fillData.copy(Velocity_x, VelxData);
         fillData.copy(Velocity_y, VelyData);
         fillData.copy(Velocity_z, VelzData);
+        fillData.copy(Pressure_f,  PressData);
 
         IO::writeData(timestep, visData, Dm->Comm);
     }
