@@ -401,8 +401,16 @@ void ScaLBL_MRTModel::Run() {
             Xs = Dm->Comm.sumReduce(Xs);
 
             double h = Dm->voxel_length;
-            double absperm = h * h * mu * Mask->Porosity() * flow_rate / force_mag;
-	    absperm *= 1013.0; // Convert to mDarcy
+
+            double absperm = 0.0;
+            if (BoundaryCondition == 3){
+                absperm = h * h * mu * Mask->Porosity() * flow_rate / (- (dout-din)/(Nz*nprocz*3.0));
+            }
+            else{
+                absperm = h * h * mu * Mask->Porosity() * flow_rate / (force_mag);
+            }
+
+            absperm *= 1013.0; // Convert to mDarcy
 
             if (rank == 0) {
                 printf("     %f\n", absperm);
