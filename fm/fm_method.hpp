@@ -9,12 +9,15 @@
 #ifndef FULL_MORPHOLOGY_HPP
 #define FULL_MORPHOLOGY_HPP
 
+#define SOLID ((unsigned char) 0)
+#define DISPLACED ((unsigned char) 1)
+#define INJECTED ((unsigned char) 2)
 
 #include <fstream>
 #include <iomanip>
 #include <stdint.h>
 #include <string>
-using namespace std;
+#include <bits/stdc++.h>
 
 #include "fm_component_labeling.hpp"
 
@@ -28,8 +31,8 @@ using namespace std;
 #include "../common/Domain.h"
 #include "../analysis/distance.h"
 
-typedef Array<int> IntArray;
-typedef Array<bool> BoolArray;
+using namespace std;
+
 typedef vector< vector<int> > MTvvi;
 
 template <typename TYPE>
@@ -129,9 +132,9 @@ void process_line(int* edt2, const size_t first, const size_t stride, int n)
             }
 }
 
-void edt_3d( unsigned char target, IntArray &image, IntArray &distance2)
+template <typename TYPE>
+void edt_3d( unsigned char target, Array<TYPE> &image, IntArray &distance2)
 {
-
     const int nx = image.size(0);
     const int ny = image.size(1);
     const int nz = image.size(2);
@@ -139,14 +142,12 @@ void edt_3d( unsigned char target, IntArray &image, IntArray &distance2)
     size_t nvox =  image.length();
     int BIG = static_cast<float>(nx*nx + ny*ny + nz*nz) + 1;
 
-    int* img = image.data();
+    TYPE* img = image.data();
     int* edt2 = distance2.data();
 
     for (int i = 0; i < (int) nvox; i++) {
         edt2[i] = (img[i] == target) ? 0.0 : BIG;
     }
-
-    size_t maxdim = std::max( std::max(nz, ny), nx );
 
     for (int z = 0; z < nz; z++) {
         for (int y = 0; y < ny; y++) {
@@ -177,8 +178,7 @@ class Full_Morphology{
     int diameter( const int & );
 
     void calc( const int & );
-    
-    
+        
   public:
 
     int _ny, _nx, _nz;                                  // Work dimensions (with reservoirs, if any)
@@ -203,9 +203,8 @@ class Full_Morphology{
 
     string _outImgRoot;                         
     
-    IntArray _final_map;                                // Output matrix  
-    IntArray _mmorig;                                   // Original image, used for reference
-    IntArray _mm;                                       // Work image, modified during the simulation
+    UCharArray _mmorig;                                   // Original image, used for reference
+    UCharArray _mm;                                       // Work image, modified during the simulation
     IntArray _matrix1, _matrix2;
     IntArray _edt;
   
@@ -213,7 +212,6 @@ class Full_Morphology{
                                    
   };
   
-
   Full_Morphology::Full_Morphology( int argc, char *argv[] ){
 
     string filename;
@@ -221,6 +219,7 @@ class Full_Morphology{
     filename=argv[1];  
 
     auto db = std::make_shared<Database>(filename);
+
     auto domain_db = db->getDatabase("Domain");
     auto fm_db = db->getDatabase("FM");
     
@@ -325,7 +324,6 @@ class Full_Morphology{
     _matrix1.resize(_nx, _ny, _nz);
     _matrix2.resize(_nx, _ny, _nz);
     _trapped.resize(_nx, _ny, _nz);
-    _final_map.resize(_nx, _ny, _nz);
 
     _trapped.fill( false );
 
@@ -364,75 +362,65 @@ class Full_Morphology{
       {
           rMin[i] = 0;
           rMax[i] = rMin[i] + 1;
-          setRegion( _mm     , _iP ? _I : _O  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
+          setRegion( _mm     , _iP ? INJECTED : DISPLACED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
 
           rMin[i] = size[i] -1 ;
           rMax[i] = rMin[i] + 1;
-          setRegion( _mm     , _iP ? _O : _I  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
+          setRegion( _mm     , _iP ? DISPLACED : INJECTED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
       }
     }
    }
 
-
-
-    // //reads input geometry
-    // FILE* rawFile = fopen( mmfile.c_str(), "r"); 
-    // if (rawFile == NULL) {
-    //   ERROR("Error openning the file " + mmfile);
-    // }
+    has_out_inlet=false;
+   
+    int mapValue[255] = {-1};
+    for(size_t idx = 0; idx < ReadValues.size(); idx++) {
       
-    // for( int z=z0; z<zM; z++ ) {
-    //   for( int y=y0; y<yM; y++ ) {
-    //     for( int x=x0; x<xM; x++ ) {
-    //          fread( readValue ,  sizeof(char), size_t count, rawFile);
-
-    //     }
-    //   }
-    // }
-    // fclose(rawFile);
-
-
-    std::ifstream FRAW(mmfile);
-    if (!FRAW.is_open()) {
-        ERROR("It was impossible to open/create the file " + mmfile);
+          if ( (ReadValues[idx] < 0) || (ReadValues[idx] > 255) )
+          {
+            ERROR( "Only values between 0 - 255 can be used as labels in ReadValues");
+            cout << ReadValues[idx] << endl;
+          }
+          if ( (WriteValues[idx] < 0) || (WriteValues[idx] > 2) )
+          {
+            ERROR( "Only values between 0 (SOLID), 1 and 2 (INJECT/DISPLACED FLUIDS) can be used as labels in WriteValues");
+          }           
+          mapValue[ ReadValues[idx] ] = (int) WriteValues[idx];           
     }
 
-    unsigned char auxraw;
-    int pc;
+    FILE* rawFile = fopen( mmfile.c_str(), "r"); 
+    if (rawFile == NULL) {
+       ERROR("Error openning the file " + mmfile);
+    }
 
-    has_out_inlet=false;
-    for( int z=z0; z<zM; z++ ){
-    for( int y=y0; y<yM; y++ ){
-    for( int x=x0; x<xM; x++ ){
+    long SEEK_BEGIN = ftell(rawFile);
+    long expectedSize = (long) (zM - z0) * (long) (yM - y0) * (long) (xM - x0);
+
+    fseek(rawFile, 0, SEEK_END); 
+
+    if ( ftell(rawFile) != expectedSize )
+    {
+        ERROR( "File '" +  mmfile + "' size is different from the expected " + to_string(expectedSize) + " bytes)."  );
+    }
+    
+    fseek(rawFile, 0, SEEK_BEGIN); // Move to beginning of the file to start reading
  
-      FRAW >> auxraw;
-      pc = static_cast<int>( auxraw );
-
-      int write_value_aux = -1;
-      for(int idx = 0; idx < ReadValues.size(); idx++){
-        if(pc == ReadValues[idx]){
-          write_value_aux = WriteValues[idx];
-          _mm(x,y,z) = write_value_aux;
-        }
-        }
-      
-      if(write_value_aux != _I && write_value_aux != _S && write_value_aux != _O){
-        // ERROR( "Unknown color in (" + ntos(x) + ", " +ntos(y) + ", " +ntos(z) + ")." );
-        ERROR( std::string("Unknown color in (")
-                  + std::to_string(x) + ", "
-                  + std::to_string(y) + ", "
-                  + std::to_string(z) + ")."
-                );
-        }
-
-      if( write_value_aux == _I )  has_out_inlet=true;
-      if( write_value_aux != _S )  _NP++;
-
-      
+    unsigned char readValue;
+    for( int z=z0; z<zM; z++ ) {
+      for( int y=y0; y<yM; y++ ) {
+         for( int x=x0; x<xM; x++ ) {
+            fread(&readValue, sizeof( unsigned char), 1, rawFile);
+            if (mapValue[readValue] == -1)             {
+                ERROR( std::string("Not specified value in '" + filename + "' at (" +
+                            to_string(x) + ", " + to_string(y) + ", " + to_string(z) + ")."  ) );
+            }
+        
+          _mm(x,y,z) = (unsigned char) mapValue[readValue];
     }}}
 
+    fclose(rawFile);
 
-    // Copies _mm into _mmorig and initializes _final_map
+    // Copies _mm into _mmorig and initializes _final_map_
     _NP=0;
     for( int z=0; z<_nz; z++ ) {
         for( int y=0; y<_ny; y++ ){
@@ -441,11 +429,11 @@ class Full_Morphology{
       if( iaux!=_S ) _NP++;
       _mmorig(x,y,z) = iaux;
 
-      if( iaux == _S ){
-        _final_map(x,y,z) = 0;
-      } else {
-          _final_map(x,y,z) = -1;
-        }
+      // if( iaux == _S ){
+      //   _final_map(x,y,z) = 0;
+      // } else {
+      //     _final_map(x,y,z) = -1;
+      //   }
 
     }}}  
   
@@ -497,7 +485,7 @@ class Full_Morphology{
   //   step => Step number
   //------------------------------------------------------------------------------
   int Full_Morphology::diameter( const int &step ){
-    if( step<0 || step>=_d.size() )
+    if( step<0 || step>= (int) _d.size() )
       ERROR( "Invalid step value." );
     return _d[step];
   }
@@ -758,12 +746,11 @@ class Full_Morphology{
   
     bool createRAW=false;
 
-    if( _saveImg==true && step==_d.size()-1 )
+    if( _saveImg==true && step== (int) _d.size()-1 )
       createRAW=true;
     
     
 
-    uint8_t aux_raw;
     FILE *FRAW;
     if( createRAW ){
       
@@ -772,7 +759,6 @@ class Full_Morphology{
       else if( _iY ){ yaux = _ny-2; }
       else if( _iZ ){ zaux = _nz-2; }
       
-      int ndig = max(_d[0],_d[_d.size()-1]);
       string saux = "invasion_diameters";
       const string fraw = saux + ".raw";
   
@@ -802,18 +788,18 @@ class Full_Morphology{
       
       iaux = _mm(x,y,z);
 
-      if( _final_map(x,y,z) == -1 && _mm(x,y,z) == _I ){
-        _final_map(x,y,z) = D;
-      }
+      // if( _final_map(x,y,z) == -1 && _mm(x,y,z) == _I ){
+      //   _final_map(x,y,z) = D;
+      // }
 
       if     ( iaux==_I ) Ninlet++;
       else if( iaux==_O ) Noutlet++;
       
-      if( createRAW ){
-        int val = _final_map(x,y,z);
-        int16_t val_save = static_cast<int16_t>(val);
-        fwrite(&val_save, sizeof(int16_t), 1, FRAW);
-      }
+      // if( createRAW ){
+      //   int val = _final_map(x,y,z);
+      //   int16_t val_save = static_cast<int16_t>(val);
+      //   fwrite(&val_save, sizeof(int16_t), 1, FRAW);
+      // }
     }
     }
     }
