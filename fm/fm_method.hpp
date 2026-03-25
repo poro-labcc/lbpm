@@ -13,6 +13,9 @@
 #define DISPLACED ((unsigned char) 1)
 #define INJECTED ((unsigned char) 2)
 
+#define BACKGROUND 0
+#define FOREGROUND 1
+
 #include <fstream>
 #include <iomanip>
 #include <stdint.h>
@@ -33,7 +36,16 @@
 
 using namespace std;
 
-typedef vector< vector<int> > MTvvi;
+void checkOption( std::string a ,  std::vector<string> s, std::string keyName)
+{
+    std::string message = "Error: Invalid option '" + a + "' for " + keyName + ". Valid options are: " ;
+    for (string b : s) {
+            if (a == b) return;
+            message += "'" + b + "', ";
+    } 
+    message.pop_back();
+    ERROR( message );
+}
 
 template <typename TYPE>
 void setRegion( Array<TYPE> &A, TYPE value, int x0, int x1, int y0, int y1, int z0, int z1)
@@ -168,7 +180,6 @@ void edt_3d( unsigned char target, Array<TYPE> &image, IntArray &distance2)
     }
 }
 
-
 class Full_Morphology{
   public:
   
@@ -185,18 +196,14 @@ class Full_Morphology{
     int dimy, dimx, dimz;                               // Original dimensions
     int _NP;                                            // Porous pixels
     int _chamber_i, _chamber_o;                         // Reservoir regions
-    int _I,                                             // _I -> Inlet fluid, 2
-        _O,                                             // _O -> Outlet fluid, 1
-        _S;                                             // _S -> Solid, 0
 
     double resolution;
     
     vector<int> _d;                                            // Diameters
-    vector<int> _next, _tail, _rtable;
 
-    bool _compressible;                                 // Compressibility, set as true for MICP
-    bool _iX, _iY, _iZ;                                 // Direction of invasion
-    bool _iP, _iM;                                      // Sense of invasion
+    bool _compressible = false;                                 // Compressibility, set as true for MICP
+    bool _iX = false, _iY = false, _iZ = false;                                 // Direction of invasion
+    bool _iP = false;                                   // Sense of invasion
     bool _all_faces;                                    // Surrounds the image for MICP   
     bool _saveImg;    
     bool has_out_inlet;
@@ -205,13 +212,10 @@ class Full_Morphology{
     
     UCharArray _mmorig;                                   // Original image, used for reference
     UCharArray _mm;                                       // Work image, modified during the simulation
-    IntArray _matrix1, _matrix2;
     IntArray _edt;
-  
-    BoolArray _trapped;            
-                                   
+    BoolArray _trapped;                                               
   };
-  
+
   Full_Morphology::Full_Morphology( int argc, char *argv[] ){
 
     string filename;
@@ -231,10 +235,6 @@ class Full_Morphology{
     auto ReadValues = domain_db->getVector<int>("ReadValues");
     auto WriteValues = domain_db->getVector<int>("WriteValues");
 
-    _S = 0;
-    _O = 1;
-    _I = 2;
-
     resolution = domain_db->getScalar<double>("voxel_length");
 
     auto READFILE = domain_db->getScalar<std::string>("Filename");
@@ -244,44 +244,27 @@ class Full_Morphology{
     _saveImg = fm_db->getScalar<bool>("SaveImage");
 
     auto protocol = fm_db->getScalar<std::string>("protocol");
+    
+    checkOption( protocol, {"micp","drainage"} , "protocol" );
     if(protocol == "micp") _compressible=true; 
-    else if (protocol == "drainage") _compressible = false; 
-    else {
-              ERROR("Error: Invalid protocol. Chose between 'micp' or 'drainage'. \n");
-      }
-
-    auto direction = fm_db->getScalar<std::string>("direction");
-
-    _iX = _iY = _iZ = _iM = _iP = false;     
     _all_faces = _compressible;
 
-    if (direction == "+x") {
-      _iP = true; _iX = true;
-    } 
-    else if (direction == "-x") {
-      _iM = true; _iX = true;
-    }
-    else if (direction == "+y") {
-      _iP = true; _iY = true;
-    }
-    else if (direction == "-y") {
-      _iM = true; _iY = true;
-    }
-    else if (direction == "+z") {
-      _iP = true; _iZ = true;      
-    }
-    else if (direction == "-z") {
-      _iM = true; _iZ = true;
-    }
-    else if (direction == "surround") {
+    auto direction = fm_db->getScalar<std::string>("direction");
+    checkOption( direction,  {"+x","-x","+y","-y","+z","-z","surround"} , "direction" );
+    
+    _iX = (direction[1] == 'x');
+    _iY = (direction[1] == 'y');
+    _iZ = (direction[1] == 'z');
+    _iP = (direction[0] == '+');
+
+    if (direction == "surround") {
       _all_faces = true;
       _iP = true;
       if(_nz > 1) _iZ = true;
       else if(_ny > 1) _iY = true;
       else if(_nx > 1) _iX = true; 
     }
-    else ERROR("Error: Unkonwn directions, please select '+x', '-x', '+y', '-y', '+z', '-z' or 'surround' ");
-      
+    
     auto diameters = fm_db->getVector<int>("Diameters");
 
     int Ndiameters = (diameters[1] - diameters[0])/diameters[2] + 1;
@@ -320,53 +303,27 @@ class Full_Morphology{
  
     _mmorig.resize(_nx, _ny, _nz);
     _mm.resize(_nx, _ny, _nz);
-    _edt.resize(_nx, _ny, _nz);
-    _matrix1.resize(_nx, _ny, _nz);
-    _matrix2.resize(_nx, _ny, _nz);
-    _trapped.resize(_nx, _ny, _nz);
+    _mm.fill( INJECTED );
 
+    _edt.resize(_nx, _ny, _nz);
+
+    _trapped.resize(_nx, _ny, _nz);
     _trapped.fill( false );
 
-    int iaux=-1;
-
-    if     ( _iX ) iaux=_nx-1; 
-    else if( _iY ) iaux=_ny-1; 
-    else if( _iZ ) iaux=_nz-1; 
-  
-    if( _iP ){
-      _chamber_i =    0;
-      _chamber_o = iaux;
-    }else if( _iM ){
-      _chamber_i = iaux;
-      _chamber_o =    0;
-    }
-
-    size_t max_eq = ( _mmorig.length() + 1 )/ 2;
-
-    _tail.resize( max_eq );
-    _next.resize( max_eq );
-    _rtable.resize( max_eq );
-
-  if(_all_faces) {
-    if (_nx > 1) for(int z=0; z<_nz; z++) for(int y=0; y<_ny; y++) { _mm(0,y,z) = _I; _mm(_nx-1,y,z) = _I; }
-    if (_ny > 1) for(int z=0; z<_nz; z++) for(int x=0; x<_nx; x++) { _mm(x,0,z) = _I; _mm(x,_ny-1,z) = _I; }
-    if (_nz > 1) for(int y=0; y<_ny; y++) for(int x=0; x<_nx; x++) { _mm(x,y,0) = _I; _mm(x,y,_nz-1) = _I; }
-  }
-  else {     
-    // If injecting in a certain direction  then set the first and last faces as input/output
+  if (!_all_faces)  
+  {     
+    // If injecting in a certain direction  then set the first or last faces as DISPLACED fluid
     for (int i = 0; i < 3; i++)
     {
       int rMin[3] = {0,0,0};
       int rMax[3] = {_nx,_ny,_nz};
       if (iAxis[i])
       {
-          rMin[i] = 0;
+          _chamber_i = _iP ? 0 :  size[i] -1 ;
+          _chamber_o = _iP ? size[i] -1 : 0 ; 
+          rMin[i] = _chamber_o;  
           rMax[i] = rMin[i] + 1;
-          setRegion( _mm     , _iP ? INJECTED : DISPLACED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
-
-          rMin[i] = size[i] -1 ;
-          rMax[i] = rMin[i] + 1;
-          setRegion( _mm     , _iP ? DISPLACED : INJECTED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
+          setRegion( _mm     ,  DISPLACED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
       }
     }
    }
@@ -400,12 +357,14 @@ class Full_Morphology{
 
     if ( ftell(rawFile) != expectedSize )
     {
-        ERROR( "File '" +  mmfile + "' size is different from the expected " + to_string(expectedSize) + " bytes)."  );
+        ERROR( "File '" +  mmfile + "' size is different from the expected (" + to_string(expectedSize) + " bytes)."  );
     }
     
     fseek(rawFile, 0, SEEK_BEGIN); // Move to beginning of the file to start reading
  
     unsigned char readValue;
+    
+    _NP= 0;
     for( int z=z0; z<zM; z++ ) {
       for( int y=y0; y<yM; y++ ) {
          for( int x=x0; x<xM; x++ ) {
@@ -415,42 +374,15 @@ class Full_Morphology{
                             to_string(x) + ", " + to_string(y) + ", " + to_string(z) + ")."  ) );
             }
         
-          _mm(x,y,z) = (unsigned char) mapValue[readValue];
+            _mm(x,y,z) = (unsigned char) mapValue[readValue];
+            if( _mm(x,y,z) != SOLID ) _NP++;
     }}}
 
     fclose(rawFile);
-
-    // Copies _mm into _mmorig and initializes _final_map_
-    _NP=0;
-    for( int z=0; z<_nz; z++ ) {
-        for( int y=0; y<_ny; y++ ){
-             for( int x=0; x<_nx; x++ ) {
-      iaux = _mm(x,y,z);
-      if( iaux!=_S ) _NP++;
-      _mmorig(x,y,z) = iaux;
-
-      // if( iaux == _S ){
-      //   _final_map(x,y,z) = 0;
-      // } else {
-      //     _final_map(x,y,z) = -1;
-      //   }
-
-    }}}  
-  
-    int discount = _nx * _ny * _nz - dimx * dimy * dimz;
-
-    // Discounts reservoir voxels
-
-    if(!_all_faces){
-    if     ( _iX ){ _NP -= 2*_ny*_nz;  }
-    else if( _iY ){ _NP -= 2*_nx*_nz;  }
-    else if( _iZ ){ _NP -= 2*_nx*_ny;  } }
-    else{
-      _NP = _NP - discount;
-    }
+    _mmorig = _mm;
   
     // Calculates _mmorig EDT
-    edt_3d( _S, _mmorig, _edt);
+    edt_3d( SOLID, _mmorig, _edt);
 
     //Creates output file .csv and header
     bool WriteHeader = false;
@@ -468,17 +400,7 @@ class Full_Morphology{
 
   }
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  //------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------
   // DESCRIPTION:
   //   Returns the diameter for a step
   // INPUT:
@@ -490,7 +412,6 @@ class Full_Morphology{
     return _d[step];
   }
   
-
   //------------------------------------------------------------------------------
   // DESCRIPTION:
   //   Calculates invasion for a given diameter
@@ -499,27 +420,16 @@ class Full_Morphology{
   //------------------------------------------------------------------------------
   void Full_Morphology::calc( const int &step ){
     int iaux;
-    
-    
+  
     const int D = this->diameter(step);
     const double D24 = D*D/4.0;
   
     // Background and Foreground values for binary images
     const int B=0, F=1;
   
-  
-    //----------------------------------------------------------------------------
-    // Performs morphological opening operation to obtain H region from Magnani (eq. 5)
-    //
-    // The algorithm is based on the following Euclidean Distance Transform (EDT):
-    // It is then straightforward to perform an erosion with a disc of radius
-    // r simply by removing all pixels whose distance label is less than r. A
-    // dilation is similarly performed by eroding the background.
-    // described on the book IMAGE ANALYSIS FOR THE BIOLOGICAL SCIENCES, by
-    // C A GLASBEY and G W HORGAN, chapter 5, page 10.
-    //----------------------------------------------------------------------------
-  
-  
+    IntArray _matrix1 ( _mm.size() );
+    _matrix1.fill( FOREGROUND );
+     
     //----------------------------------------------------------------------------
     // LOOP 1:
     // * Determines H region by opening:
@@ -530,53 +440,37 @@ class Full_Morphology{
     for( int x=0; x<_nx; x++ ){
     for( int y=0; y<_ny; y++ ){
     for( int z=0; z<_nz; z++ ){
-
-      _matrix2(x,y,z) = F;
-      if( _edt(x,y,z)>=D24 ){
-        _matrix1(x,y,z) = F;
-        
-      
-      }else{
-         _matrix1(x,y,z) = B;
-        if(_mmorig(x,y,z)==_I ){
-           _matrix1(x,y,z) = F;
-           _matrix2(x,y,z) = B;  
+      if (_edt(x,y,z) < D24 ) {                
+        _matrix1(x,y,z) = BACKGROUND;
+        if( _mmorig(x,y,z) == INJECTED) 
+        {
+           _matrix1(x,y,z) = FOREGROUND;
         }
       }      
     }}}
-
-    //----------------------------------------------------------------------------
-  
-  
-  
-  
-  
-    //----------------------------------------------------------------------------
+   
     // Find the connected regions
+    component_labeling( _matrix1, FOREGROUND, BACKGROUND); 
+
     int xaux=_nx/2, yaux=_ny/2, zaux=_nz/2;
     if     ( _iX ){ xaux=_chamber_i; }
     else if( _iY ){ yaux=_chamber_i; }
     else if( _iZ ){ zaux=_chamber_i; }
     int chamber_label=0;
-    component_labeling( _matrix1, F, B, _next, _tail, _rtable ); 
+
     chamber_label =  _matrix1(xaux,yaux,zaux);
     // #pragma omp parallel for num_threads (_nthreads)
     for( int x=0; x<_nx; x++ ){
     for( int y=0; y<_ny; y++ ){
     for( int z=0; z<_nz; z++ ){
       if( _matrix1(x,y,z) == chamber_label ){
-  
-        _matrix1(x,y,z) = _matrix2(x,y,z);
-        
+        _matrix1(x,y,z) = ( _edt(x,y,z) < D24 && _mmorig(x,y,z) == INJECTED ) ? BACKGROUND : FOREGROUND;        
       }else{
-        _matrix1(x,y,z) = B;
+        _matrix1(x,y,z) = BACKGROUND;
       }
     }}}  
   
-    //----------------------------------------------------------------------------
-    // Now, compute the EDT of the negative, treating the Foreground pixels as
-    // Background. Compute the EDT of the image _matrix1 and store the result in _matrix2.
-    edt_3d( F, _matrix1, _matrix2);
+    edt_3d( FOREGROUND, _matrix1, _matrix1);
     //----------------------------------------------------------------------------
   
 
@@ -590,11 +484,11 @@ class Full_Morphology{
     for( int x=0; x<_nx; x++ ){
     for( int y=0; y<_ny; y++ ){
     for( int z=0; z<_nz; z++ ){
-      if( _matrix2(x,y,z) < D24 ){
-        _mm(x,y,z) = _I;
+      if( _matrix1(x,y,z) < D24 ){
+        _mm(x,y,z) = INJECTED;
       }
 
-      _matrix1(x,y,z) = (_mm(x,y,z)==_I)? F:B;
+      _matrix1(x,y,z) = (_mm(x,y,z)==INJECTED)? FOREGROUND : BACKGROUND; 
     }}}
     
     
@@ -603,7 +497,7 @@ class Full_Morphology{
     // LOOP 2b:
     // * Disconnected regions of invaded fluid on matrix1
     //----------------------------------------------------------------------------
-    component_labeling( _matrix1, F, B, _next, _tail, _rtable );
+    component_labeling( _matrix1, FOREGROUND, BACKGROUND );
     chamber_label =  _matrix1(xaux,yaux,zaux);  
 
 
@@ -621,9 +515,9 @@ class Full_Morphology{
   
       // G region: L U H   eq.6
       bool rG=false;
-      if     ( _iX ){ rG  = (_mm(x,y,z)==_I || x==_chamber_i); }
-      else if( _iY ){ rG  = (_mm(x,y,z)==_I || y==_chamber_i); }
-      else if( _iZ ){ rG  = (_mm(x,y,z)==_I || z==_chamber_i); }
+      if     ( _iX ){ rG  = (_mm(x,y,z)==INJECTED || x==_chamber_i); }
+      else if( _iY ){ rG  = (_mm(x,y,z)==INJECTED || y==_chamber_i); }
+      else if( _iZ ){ rG  = (_mm(x,y,z)==INJECTED || z==_chamber_i); }
   
   
       // Operador K, generates Omega region   eq.11
@@ -632,10 +526,10 @@ class Full_Morphology{
         rO = true;
 
       if( rO ){ 
-        _mm(x,y,z) = _I;
+        _mm(x,y,z) = INJECTED;
       }else{
-        if( _mm(x,y,z) != _S )
-          _mm(x,y,z) = _O;
+        if( _mm(x,y,z) != SOLID )
+          _mm(x,y,z) = DISPLACED;
       }
       
     }}}
@@ -649,8 +543,8 @@ class Full_Morphology{
       // #pragma omp parallel for num_threads (_nthreads)
       for( int y=0; y<_ny; y++ ){
       for( int z=0; z<_nz; z++ ){
-        _mm(_chamber_i,y,z) = _I;
-        _mm(_chamber_o,y,z) = _O;
+        _mm(_chamber_i,y,z) = INJECTED;
+        _mm(_chamber_o,y,z) = DISPLACED;
       }}
       
       x0=1;
@@ -660,8 +554,8 @@ class Full_Morphology{
       // #pragma omp parallel for num_threads (_nthreads)
       for( int x=0; x<_nx; x++ ){
       for( int z=0; z<_nz; z++ ){
-        _mm(x,_chamber_i,z) = _I;
-        _mm(x,_chamber_o,z) = _O;
+        _mm(x,_chamber_i,z) = INJECTED;
+        _mm(x,_chamber_o,z) = DISPLACED;
       }}
       
       y0=1;
@@ -671,8 +565,8 @@ class Full_Morphology{
       // #pragma omp parallel for num_threads (_nthreads)
       for( int x=0; x<_nx; x++ ){
       for( int y=0; y<_ny; y++ ){
-        _mm(x,y,_chamber_i) = _I;
-        _mm(x,y,_chamber_o)= _O;
+        _mm(x,y,_chamber_i) = INJECTED;
+        _mm(x,y,_chamber_o)= DISPLACED;
       }}
       
       z0=1;
@@ -684,8 +578,8 @@ class Full_Morphology{
       for( int x=x0; x<xM; x++ ){
       for( int y=y0; y<yM; y++ ){
       for( int z=z0; z<zM; z++ ){
-        if( _mmorig(x,y,z)==_I )
-          _mm(x,y,z) = _I;
+        if( _mmorig(x,y,z)==INJECTED )
+          _mm(x,y,z) = INJECTED;
       }}}
     }
   
@@ -709,11 +603,11 @@ class Full_Morphology{
       for( int z=0; z<_nz; z++ ){
 
         if( _trapped(x,y,z) )
-          _mm(x,y,z) = _O;
+          _mm(x,y,z) = DISPLACED;
   
-        _matrix1(x,y,z) = (_mm(x,y,z)==_O)? F:B;
+        _matrix1(x,y,z) = (_mm(x,y,z)==DISPLACED)? F:B;
       }}}
-      component_labeling( _matrix1, F, B, _next, _tail, _rtable );
+      component_labeling( _matrix1, F, B );
       
     
       xaux=_nx/2, yaux=_ny/2, zaux=_nz/2;
@@ -735,7 +629,7 @@ class Full_Morphology{
       for( int y=0; y<_ny; y++ ){
       for( int z=0; z<_nz; z++ ){    
   
-        if( _mm(x,y,z)==_O &&  _matrix1(x,y,z) != chamber_label )
+        if( _mm(x,y,z)==DISPLACED &&  _matrix1(x,y,z) != chamber_label )
           _trapped(x,y,z)=true;
       }}}
     }
@@ -788,12 +682,12 @@ class Full_Morphology{
       
       iaux = _mm(x,y,z);
 
-      // if( _final_map(x,y,z) == -1 && _mm(x,y,z) == _I ){
+      // if( _final_map(x,y,z) == -1 && _mm(x,y,z) == INJECTED ){
       //   _final_map(x,y,z) = D;
       // }
 
-      if     ( iaux==_I ) Ninlet++;
-      else if( iaux==_O ) Noutlet++;
+      if     ( iaux==INJECTED ) Ninlet++;
+      else if( iaux==DISPLACED ) Noutlet++;
       
       // if( createRAW ){
       //   int val = _final_map(x,y,z);
