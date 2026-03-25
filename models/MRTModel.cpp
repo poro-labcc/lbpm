@@ -405,6 +405,8 @@ void ScaLBL_MRTModel::Run() {
                         timestep, Fx, Fy, Fz, mu, h * h * h * Vs, h * h * As,
                         h * Hs, Xs, vax, vay, vaz, absperm, absperm * Mask->Porosity());
                 fclose(log_file);
+
+                VelocityField();
             }
         }
     }
@@ -474,13 +476,6 @@ void ScaLBL_MRTModel::VelocityField() {
 						*/
     vis_db = db->getDatabase("Visualization");
     if (vis_db->getWithDefault<bool>("write_silo", false)) {
-        // Calculate Final Macroscopic Velocity
-        ScaLBL_D3Q19_Momentum_2nd_order(fq, Velocity, Np, Fx, Fy, Fz);
-        ScaLBL_DeviceBarrier();
-        comm.barrier();
-        ScaLBL_Comm->RegularLayout(Map, &Velocity[0], Velocity_x);
-        ScaLBL_Comm->RegularLayout(Map, &Velocity[Np], Velocity_y);
-        ScaLBL_Comm->RegularLayout(Map, &Velocity[2 * Np], Velocity_z);
         // Calculate Final Macroscopic Pressure
         ScaLBL_D3Q19_Pressure(fq, Pressure, Np);
         ScaLBL_DeviceBarrier();                     // Sync
@@ -505,6 +500,7 @@ void ScaLBL_MRTModel::VelocityField() {
         visData[0].mesh = std::make_shared<IO::DomainMesh>(
             Dm->rank_info, Dm->Nx - 2, Dm->Ny - 2, Dm->Nz - 2, Dm->Lx, Dm->Ly,
             Dm->Lz);
+
         SignDistVar->name = "SignDist";
         SignDistVar->type = IO::VariableType::VolumeVariable;
         SignDistVar->dim = 1;
