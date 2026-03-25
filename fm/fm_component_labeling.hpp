@@ -12,9 +12,7 @@ using namespace std;
 
 #include "../common/Array.h"
 
-void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> &next,
-                         vector<int> &tail, vector<int> &rtable );
-
+void component_labeling( IntArray &IMG, const int &F, const int &B);
 void merge( const int &, const int &, vector<int> &, vector<int> &, vector<int> & );
 void resolve( const int &, const int &, vector<int> &, vector<int> &, vector<int> & );
 
@@ -28,10 +26,14 @@ void resolve( const int &, const int &, vector<int> &, vector<int> &, vector<int
 //   F, B         => Foreground and Background
 //   next, tail, rtable => vector to work with equivalences information
 //------------------------------------------------------------------------------
-void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> &next,
-                         vector<int> &tail, vector<int> &rtable ){
+void component_labeling( IntArray &IMG, const int &F, const int &B){
 
-  
+  size_t maxNumberOfLabels = (IMG.length() + 1)/2;
+
+  std::vector<int> next( maxNumberOfLabels );
+  std::vector<int> tail( maxNumberOfLabels );
+  std::vector<int> rtable( maxNumberOfLabels );   
+
   const int nx = IMG.size(0);
   const int ny = IMG.size(1);
   const int nz = IMG.size(2);
@@ -117,7 +119,7 @@ void component_labeling( IntArray &IMG, const int &F, const int &B, vector<int> 
   // Update merged labels
   int* img = IMG.data();
 
-  for (int n = 0; n < IMG.length(); n++ )  {
+  for (size_t n = 0; n < IMG.length(); n++ )  {
     if (*img !=B ) *img = rtable[ *img ];
     img++;
   }

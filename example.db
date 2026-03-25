@@ -1,10 +1,8 @@
 Domain {
    Filename = "sphere-pack-50c-uint8.raw"
-   ReadType = "8bit"
    N = 50, 50, 50            // domain size
    n = 50, 50, 50
    nproc = 1, 1, 1
-   VoxelLabels = 0, 1, 2    // solid, expelled, injected
    ReadValues = 0, 1
    WriteValues = 0, 1
    voxel_length = 1
