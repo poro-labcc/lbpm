@@ -38,22 +38,30 @@ void ScaLBL_MRTModel::ReadParams(string filename) {
     domain_db = db->getDatabase("Domain");
     mrt_db = db->getDatabase("MRT");
     vis_db = db->getDatabase("Visualization");
+    ana_db = db->getDatabase("Analysis");
 
-    tau = 1.0;
-    timestepMax = 100000;
-    ANALYSIS_INTERVAL = 1000;
-    tolerance = 1.0e-8;
-    Fx = Fy = 0.0;
-    Fz = 1.0e-5;
-    dout = 1.0;
-    din = 1.0;
+    tau                 = 1.0;
+    timestepMax         = 100000;
+    ANALYSIS_INTERVAL   = 1000;
+    VISUAL_INTERVAL     = 100001;
+    tolerance           = 1.0e-8;
+    Fx = Fy             = 0.0;
+    Fz                  = 1.0e-5;
+    dout                = 1.0;
+    din                 = 1.0;
 
     // Color Model parameters
     if (mrt_db->keyExists("timestepMax")) {
         timestepMax = mrt_db->getScalar<int>("timestepMax");
     }
-    if (mrt_db->keyExists("analysis_interval")) {
-        ANALYSIS_INTERVAL = mrt_db->getScalar<int>("analysis_interval");
+    if (ana_db->keyExists("analysis_interval")) {
+        ANALYSIS_INTERVAL = ana_db->getScalar<int>("analysis_interval");
+    }
+    if (ana_db->keyExists("visualization_interval")) {
+        VISUAL_INTERVAL = ana_db->getScalar<int>("visualization_interval");
+    }
+    else{
+        VISUAL_INTERVAL = timestepMax+1;
     }
     if (mrt_db->keyExists("tolerance")) {
         tolerance = mrt_db->getScalar<double>("tolerance");
@@ -406,9 +414,14 @@ void ScaLBL_MRTModel::Run() {
                         h * Hs, Xs, vax, vay, vaz, absperm, absperm * Mask->Porosity());
                 fclose(log_file);
 
-                VelocityField();
+
             }
         }
+
+        if (timestep % VISUAL_INTERVAL == 0 && rank == 0) {
+            VelocityField();
+        }
+
     }
     //************************************************************************/
     if (rank == 0)

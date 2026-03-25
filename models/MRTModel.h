@@ -48,7 +48,7 @@ public:
 
     bool Restart, pBC;
     int timestep, timestepMax;
-    int ANALYSIS_INTERVAL;
+    int ANALYSIS_INTERVAL, VISUAL_INTERVAL;
     int BoundaryCondition;
     double tau, mu;
     double Fx, Fy, Fz, flux;
@@ -67,6 +67,7 @@ public:
     std::shared_ptr<Database> domain_db;
     std::shared_ptr<Database> mrt_db;
     std::shared_ptr<Database> vis_db;
+    std::shared_ptr<Database> ana_db;
 
     IntArray Map;
     DoubleArray Distance;
