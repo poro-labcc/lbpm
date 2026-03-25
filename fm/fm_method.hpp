@@ -423,33 +423,23 @@ class Full_Morphology{
   
     const int D = this->diameter(step);
     const double D24 = D*D/4.0;
-  
-    // Background and Foreground values for binary images
-    const int B=0, F=1;
-  
+       
+    // Perform the opening of the pore space by a D diameter sphere, i. e.,
+    // finds the region of porespace which can fit a D diameter sphere;
     IntArray _matrix1 ( _mm.size() );
     _matrix1.fill( FOREGROUND );
-     
-    //----------------------------------------------------------------------------
-    // LOOP 1:
-    // * Determines H region by opening:
-    // - 1st erosion -> matrix1
-    // * equals _mm to _mmorig
-    //----------------------------------------------------------------------------
-    // #pragma omp parallel for num_threads (_nthreads)
+
     for( int x=0; x<_nx; x++ ){
     for( int y=0; y<_ny; y++ ){
-    for( int z=0; z<_nz; z++ ){
-      if (_edt(x,y,z) < D24 ) {                
-        _matrix1(x,y,z) = BACKGROUND;
-        if( _mmorig(x,y,z) == INJECTED) 
-        {
-           _matrix1(x,y,z) = FOREGROUND;
-        }
-      }      
+    for( int z=0; z<_nz; z++ ){      
+      if ( _edt(x,y,z) < D24 ) {              
+        // Possible invaded region is selected as the one where the sphere fits and the one which it not locate
+        // at the DISPLACED fluid reservoir or SOLID 
+        _matrix1(x,y,z) = ( _mmorig(x,y,z) != INJECTED) ? BACKGROUND : FOREGROUND;
+      }
     }}}
    
-    // Find the connected regions
+    // Find the connected regions of the INJECTED FLUID
     component_labeling( _matrix1, FOREGROUND, BACKGROUND); 
 
     int xaux=_nx/2, yaux=_ny/2, zaux=_nz/2;
@@ -605,9 +595,9 @@ class Full_Morphology{
         if( _trapped(x,y,z) )
           _mm(x,y,z) = DISPLACED;
   
-        _matrix1(x,y,z) = (_mm(x,y,z)==DISPLACED)? F:B;
+        _matrix1(x,y,z) = (_mm(x,y,z)==DISPLACED)? FOREGROUND:BACKGROUND;
       }}}
-      component_labeling( _matrix1, F, B );
+      component_labeling( _matrix1, FOREGROUND, BACKGROUND );
       
     
       xaux=_nx/2, yaux=_ny/2, zaux=_nz/2;
