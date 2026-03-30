@@ -36,13 +36,13 @@ int main( int argc, char *argv[] ){
   if( argc!=2 ) ERROR("Wrong number of parameters.");
   Full_Morphology fm( argc, argv );
   
-  const int nsteps = fm.Ndiam();
+  const int nsteps = fm._diameter.size();
   for( int step=0; step<nsteps; step++ ){
     
-    const int d = fm.diameter(step);
+    int d = fm.calc(step);
     cout << "Step " << step << ", D = " << d << " px." << endl;
     
-    fm.calc(step);
+    
     
   }
 

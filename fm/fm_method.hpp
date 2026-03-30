@@ -184,36 +184,36 @@ class Full_Morphology{
   public:
   
     Full_Morphology( int, char *[] );
-    
-    int Ndiam (void) const { return _d.size(); }
-    int diameter( const int & );
-
-    void calc( const int & );
+    int calc( const int & );
         
   public:
 
+    std::vector<int> r_ini = {0,0,0};
+    std::vector<int> r_end = {0,0,0};
+    std::vector<int> iAxis = {false, false, false};     // If injection occour in the specified axis
     int _ny, _nx, _nz;                                  // Work dimensions (with reservoirs, if any)
     int dimy, dimx, dimz;                               // Original dimensions
     int _NP;                                            // Porous pixels
     int _chamber_i, _chamber_o;                         // Reservoir regions
 
+    int rChamberI[3];
+    int rChamberO[3];
+
     double resolution;
     
-    vector<int> _d;                                            // Diameters
+    vector<int> _diameter;                              // Diameter
 
-    bool _compressible = false;                                 // Compressibility, set as true for MICP
-    bool _iX = false, _iY = false, _iZ = false;                                 // Direction of invasion
+    bool _compressible = false;                         // Compressibility, set as true for MICP
     bool _iP = false;                                   // Sense of invasion
     bool _all_faces;                                    // Surrounds the image for MICP   
     bool _saveImg;    
-    bool has_out_inlet;
+   
+    UCharArray originalImage;                                // Original image, used for reference
+    UCharArray workingImage;                                 // Work image, modified during the simulation   
+    Array<int16_t> finalMap; 
+    IntArray originalEDT;
+    BoolArray trapped;                                               
 
-    string _outImgRoot;                         
-    
-    UCharArray _mmorig;                                   // Original image, used for reference
-    UCharArray _mm;                                       // Work image, modified during the simulation
-    IntArray _edt;
-    BoolArray _trapped;                                               
   };
 
   Full_Morphology::Full_Morphology( int argc, char *argv[] ){
@@ -232,6 +232,9 @@ class Full_Morphology{
     _ny = size[1];
     _nz = size[2];
     
+    finalMap.resize( size[0],  size[1], size[2] );
+    finalMap.fill(-1);
+
     auto ReadValues = domain_db->getVector<int>("ReadValues");
     auto WriteValues = domain_db->getVector<int>("WriteValues");
 
@@ -240,7 +243,6 @@ class Full_Morphology{
     auto READFILE = domain_db->getScalar<std::string>("Filename");
     const string mmfile(READFILE);
     
-    _outImgRoot = fm_db->getScalar<std::string>("ImageRoot");
     _saveImg = fm_db->getScalar<bool>("SaveImage");
 
     auto protocol = fm_db->getScalar<std::string>("protocol");
@@ -252,37 +254,34 @@ class Full_Morphology{
     auto direction = fm_db->getScalar<std::string>("direction");
     checkOption( direction,  {"+x","-x","+y","-y","+z","-z","surround"} , "direction" );
     
-    _iX = (direction[1] == 'x');
-    _iY = (direction[1] == 'y');
-    _iZ = (direction[1] == 'z');
+    iAxis[0] = (direction[1] == 'x');
+    iAxis[1] = (direction[1] == 'y');
+    iAxis[2] = (direction[1] == 'z');
+
     _iP = (direction[0] == '+');
 
     if (direction == "surround") {
       _all_faces = true;
       _iP = true;
-      if(_nz > 1) _iZ = true;
-      else if(_ny > 1) _iY = true;
-      else if(_nx > 1) _iX = true; 
+      if     (size[2] > 1) iAxis[2] = true;
+      else if(size[1] > 1) iAxis[1] = true;
+      else if(size[0] > 1) iAxis[0] = true; 
     }
     
-    auto diameters = fm_db->getVector<int>("Diameters");
+    auto diameterRange = fm_db->getVector<int>("Diameters");
+    int numberOfDiameters = (diameterRange[1] - diameterRange[0])/diameterRange[2] + 1;
 
-    int Ndiameters = (diameters[1] - diameters[0])/diameters[2] + 1;
-
-    if(  Ndiameters <= 0 ) {
+    if(  numberOfDiameters <= 0 ) {
       ERROR("Error: It was impossible to create diameters array. ");  
     }
 
-    _d.resize( Ndiameters );
+    _diameter.resize( numberOfDiameters  );
 
-    for (int i = 0; i  < Ndiameters; i++)  {
-      _d[i] = diameters[1] - i * diameters[2];
+    for (int i = 0; i  < numberOfDiameters ; i++)  {
+      _diameter[i] = diameterRange[1] - i * diameterRange[2];
     }
 
-    std::vector<bool> iAxis = {_iX, _iY, _iZ };
-    std::vector<int>  r_ini = {0,0,0};
-    std::vector<int>  r_end = size;
-
+    r_end = size;
     dimx = _nx; dimy = _ny; dimz = _nz; 
     
     // Add aditional layer for input/output reservoirs    
@@ -294,42 +293,36 @@ class Full_Morphology{
          }          
     }
 
-    int x0 = r_ini[0] , y0 = r_ini[1]  , z0 =  r_ini[2];
-    int xM = r_end[0],  yM = r_end[1]  , zM =  r_end[2];
-
     _nx = size[0];
     _ny = size[1];
     _nz = size[2];
  
-    _mmorig.resize(_nx, _ny, _nz);
-    _mm.resize(_nx, _ny, _nz);
-    _mm.fill( INJECTED );
+    originalImage.resize(_nx, _ny, _nz);
+    workingImage.resize( originalImage.size() );
+    originalEDT.resize( originalImage.size() );
+    trapped.resize( originalImage.size() );
 
-    _edt.resize(_nx, _ny, _nz);
-
-    _trapped.resize(_nx, _ny, _nz);
-    _trapped.fill( false );
-
-  if (!_all_faces)  
-  {     
+    workingImage.fill( INJECTED );  
+    trapped.fill( false );
+  
     // If injecting in a certain direction  then set the first or last faces as DISPLACED fluid
-    for (int i = 0; i < 3; i++)
-    {
+    for (int i = 0; i < 3; i++) {
       int rMin[3] = {0,0,0};
-      int rMax[3] = {_nx,_ny,_nz};
-      if (iAxis[i])
+      int rMax[3] = {_nx,_ny,_nz};          
+
+      if (iAxis[i] && (!_all_faces))
       {
           _chamber_i = _iP ? 0 :  size[i] -1 ;
           _chamber_o = _iP ? size[i] -1 : 0 ; 
           rMin[i] = _chamber_o;  
           rMax[i] = rMin[i] + 1;
-          setRegion( _mm     ,  DISPLACED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
+          setRegion( workingImage     ,  DISPLACED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
       }
+      
+      rChamberI[i] = iAxis[i] ? _chamber_i : rMax[i] / 2;
+      rChamberO[i] = iAxis[i] ? _chamber_o : rMax[i] / 2;
     }
-   }
-
-    has_out_inlet=false;
-   
+    
     int mapValue[255] = {-1};
     for(size_t idx = 0; idx < ReadValues.size(); idx++) {
       
@@ -351,7 +344,7 @@ class Full_Morphology{
     }
 
     long SEEK_BEGIN = ftell(rawFile);
-    long expectedSize = (long) (zM - z0) * (long) (yM - y0) * (long) (xM - x0);
+    long expectedSize = (long) (r_end[2] - r_ini[2]) * (long) (r_end[1] - r_ini[1]) * (long) (r_end[0] - r_ini[0]);
 
     fseek(rawFile, 0, SEEK_END); 
 
@@ -365,24 +358,25 @@ class Full_Morphology{
     unsigned char readValue;
     
     _NP= 0;
-    for( int z=z0; z<zM; z++ ) {
-      for( int y=y0; y<yM; y++ ) {
-         for( int x=x0; x<xM; x++ ) {
+    for( int z= r_ini[2]; z< r_end[2]; z++ ) {
+      for( int y = r_ini[1]; y< r_end[1]; y++ ) {
+         for( int x= r_ini[0]; x< r_end[0]; x++ ) {
+
             fread(&readValue, sizeof( unsigned char), 1, rawFile);
             if (mapValue[readValue] == -1)             {
                 ERROR( std::string("Not specified value in '" + filename + "' at (" +
                             to_string(x) + ", " + to_string(y) + ", " + to_string(z) + ")."  ) );
             }
         
-            _mm(x,y,z) = (unsigned char) mapValue[readValue];
-            if( _mm(x,y,z) != SOLID ) _NP++;
+            workingImage(x,y,z) = (unsigned char) mapValue[readValue];
+            if( workingImage(x,y,z) != SOLID ) _NP++;
     }}}
 
     fclose(rawFile);
-    _mmorig = _mm;
+    originalImage = workingImage;
   
-    // Calculates _mmorig EDT
-    edt_3d( SOLID, _mmorig, _edt);
+    // Calculates originalImage EDT
+    edt_3d( SOLID, originalImage, originalEDT);
 
     //Creates output file .csv and header
     bool WriteHeader = false;
@@ -400,306 +394,166 @@ class Full_Morphology{
 
   }
   
-    //------------------------------------------------------------------------------
-  // DESCRIPTION:
-  //   Returns the diameter for a step
-  // INPUT:
-  //   step => Step number
-  //------------------------------------------------------------------------------
-  int Full_Morphology::diameter( const int &step ){
-    if( step<0 || step>= (int) _d.size() )
-      ERROR( "Invalid step value." );
-    return _d[step];
-  }
+  int Full_Morphology::calc( const int &step ){
   
-  //------------------------------------------------------------------------------
-  // DESCRIPTION:
-  //   Calculates invasion for a given diameter
-  // INPUT:
-  //   step => current step number
-  //------------------------------------------------------------------------------
-  void Full_Morphology::calc( const int &step ){
-    int iaux;
-  
-    const int D = this->diameter(step);
+    const int D = _diameter[step];
     const double D24 = D*D/4.0;
        
-    // Perform the opening of the pore space by a D diameter sphere, i. e.,
-    // finds the region of porespace which can fit a D diameter sphere;
-    IntArray _matrix1 ( _mm.size() );
-    _matrix1.fill( FOREGROUND );
+    IntArray _matrix1 ( workingImage.size() );
 
-    for( int x=0; x<_nx; x++ ){
-    for( int y=0; y<_ny; y++ ){
-    for( int z=0; z<_nz; z++ ){      
-      if ( _edt(x,y,z) < D24 ) {              
-        // Possible invaded region is selected as the one where the sphere fits and the one which it not locate
+    // Set as FOREGROUND the eroded POROUS space with diameter D united
+    for( int z=0; z<_nz; z++ ) {
+    for( int y=0; y<_ny; y++ ) {
+    for( int x=0; x<_nx; x++ ) {
+
+      if ( originalEDT(x,y,z) < D24 ) {              
+        // Possible invaded region is selected as the one where the sphere fits and the one which it not located
         // at the DISPLACED fluid reservoir or SOLID 
-        _matrix1(x,y,z) = ( _mmorig(x,y,z) != INJECTED) ? BACKGROUND : FOREGROUND;
+        _matrix1(x,y,z) = ( originalImage(x,y,z) == INJECTED) ? FOREGROUND : BACKGROUND;
       }
+      else _matrix1(x,y,z) = FOREGROUND;
     }}}
    
-    // Find the connected regions of the INJECTED FLUID
+    // Label the eroded regions 
     component_labeling( _matrix1, FOREGROUND, BACKGROUND); 
 
-    int xaux=_nx/2, yaux=_ny/2, zaux=_nz/2;
-    if     ( _iX ){ xaux=_chamber_i; }
-    else if( _iY ){ yaux=_chamber_i; }
-    else if( _iZ ){ zaux=_chamber_i; }
-    int chamber_label=0;
+    // Extract the label associated with the injection layer
+    int chamber_label =  _matrix1( rChamberI[0],rChamberI[1],rChamberI[2]) ;
 
-    chamber_label =  _matrix1(xaux,yaux,zaux);
-    // #pragma omp parallel for num_threads (_nthreads)
-    for( int x=0; x<_nx; x++ ){
-    for( int y=0; y<_ny; y++ ){
     for( int z=0; z<_nz; z++ ){
+    for( int y=0; y<_ny; y++ ){
+    for( int x=0; x<_nx; x++ ){
       if( _matrix1(x,y,z) == chamber_label ){
-        _matrix1(x,y,z) = ( _edt(x,y,z) < D24 && _mmorig(x,y,z) == INJECTED ) ? BACKGROUND : FOREGROUND;        
+        _matrix1(x,y,z) = ( originalEDT(x,y,z) < D24 && originalImage(x,y,z) == INJECTED ) ? BACKGROUND : FOREGROUND;        
       }else{
         _matrix1(x,y,z) = BACKGROUND;
       }
+
     }}}  
   
     edt_3d( FOREGROUND, _matrix1, _matrix1);
-    //----------------------------------------------------------------------------
-  
 
-    //----------------------------------------------------------------------------
-    // LOOP 2a:
-    // * Determine H region by opening:
-    // - 2nd erosion
-    // * Highlights regions occupied by fluids in _mm
-    //----------------------------------------------------------------------------
-    // #pragma omp parallel for num_threads (_nthreads)
-    for( int x=0; x<_nx; x++ ){
-    for( int y=0; y<_ny; y++ ){
     for( int z=0; z<_nz; z++ ){
+    for( int y=0; y<_ny; y++ ){
+    for( int x=0; x<_nx; x++ ){
+    
       if( _matrix1(x,y,z) < D24 ){
-        _mm(x,y,z) = INJECTED;
+        workingImage(x,y,z) = INJECTED;
       }
-
-      _matrix1(x,y,z) = (_mm(x,y,z)==INJECTED)? FOREGROUND : BACKGROUND; 
+      _matrix1(x,y,z) = (workingImage(x,y,z)==INJECTED) ? FOREGROUND : BACKGROUND; 
     }}}
     
-    
-    
-    //----------------------------------------------------------------------------
-    // LOOP 2b:
-    // * Disconnected regions of invaded fluid on matrix1
-    //----------------------------------------------------------------------------
     component_labeling( _matrix1, FOREGROUND, BACKGROUND );
-    chamber_label =  _matrix1(xaux,yaux,zaux);  
+    chamber_label =  _matrix1( rChamberI[0], rChamberI[1], rChamberI[2]);  
 
-
-    //----------------------------------------------------------------------------
-    // LOOP 3:
-    // * Replaces equivalent indices
-    // * Determines G region
-    // * Determines Omega region
-    // * Determines what kind of fluid will be at each voxel according to Omega
-    // * Set final image colors
-    //----------------------------------------------------------------------------
-    for( int x=0; x<_nx; x++ ){
-    for( int y=0; y<_ny; y++ ){
     for( int z=0; z<_nz; z++ ){
-  
-      // G region: L U H   eq.6
-      bool rG=false;
-      if     ( _iX ){ rG  = (_mm(x,y,z)==INJECTED || x==_chamber_i); }
-      else if( _iY ){ rG  = (_mm(x,y,z)==INJECTED || y==_chamber_i); }
-      else if( _iZ ){ rG  = (_mm(x,y,z)==INJECTED || z==_chamber_i); }
-  
-  
-      // Operador K, generates Omega region   eq.11
-      bool rO=false;
-      if( rG && _matrix1(x,y,z) == chamber_label )
-        rO = true;
+    for( int y=0; y<_ny; y++ ){
+    for( int x=0; x<_nx; x++ ){
+        
+        // G region: L U H   eq.6
+      bool rG = (workingImage(x,y,z) == INJECTED);
 
+      if     ( iAxis[0] ){ rG  = (rG || x == _chamber_i); }
+      else if( iAxis[1] ){ rG  = (rG || y == _chamber_i); }
+      else if( iAxis[2] ){ rG  = (rG || z == _chamber_i); }
+    
+      // Operador K, generates Omega region   eq.11
+      bool rO = (rG && _matrix1(x,y,z) == chamber_label);
+      
       if( rO ){ 
-        _mm(x,y,z) = INJECTED;
+        workingImage(x,y,z) = INJECTED;
       }else{
-        if( _mm(x,y,z) != SOLID )
-          _mm(x,y,z) = DISPLACED;
+        if( workingImage(x,y,z) != SOLID )
+          workingImage(x,y,z) = DISPLACED;
       }
       
     }}}
-    
-    int x0=0  , y0=0  , z0=0;
-    int xM=_nx, yM=_ny, zM=_nz;
-
-
-    if(!_all_faces){
-    if( _iX ){
-      // #pragma omp parallel for num_threads (_nthreads)
-      for( int y=0; y<_ny; y++ ){
-      for( int z=0; z<_nz; z++ ){
-        _mm(_chamber_i,y,z) = INJECTED;
-        _mm(_chamber_o,y,z) = DISPLACED;
-      }}
+  
+    if(!_all_faces) {
       
-      x0=1;
-      xM--;
-         
-    }else if( _iY ){
-      // #pragma omp parallel for num_threads (_nthreads)
-      for( int x=0; x<_nx; x++ ){
-      for( int z=0; z<_nz; z++ ){
-        _mm(x,_chamber_i,z) = INJECTED;
-        _mm(x,_chamber_o,z) = DISPLACED;
-      }}
-      
-      y0=1;
-      yM--;
-      
-    }else if( _iZ ){
-      // #pragma omp parallel for num_threads (_nthreads)
-      for( int x=0; x<_nx; x++ ){
-      for( int y=0; y<_ny; y++ ){
-        _mm(x,y,_chamber_i) = INJECTED;
-        _mm(x,y,_chamber_o)= DISPLACED;
-      }}
-      
-      z0=1;
-      zM--;    
-    }
+      if ( iAxis[0] ){
+          setRegion( workingImage     ,  INJECTED   , _chamber_i, _chamber_i+1, 0, _ny , 0, _nz );
+          setRegion( workingImage     ,  DISPLACED  , _chamber_o, _chamber_o+1, 0, _ny , 0, _nz );      
+      }
+      else if( iAxis[1] ) {
+          setRegion( workingImage     ,  INJECTED   , 0, _nx , _chamber_i, _chamber_i+1, 0, _nz );
+          setRegion( workingImage     ,  DISPLACED  , 0, _nx , _chamber_o, _chamber_o+1, 0, _nz );           
+      }
+      else if( iAxis[2] ) {
+          setRegion( workingImage     ,  INJECTED   , 0, _nx , 0, _nz , _chamber_i, _chamber_i+1);
+          setRegion( workingImage     ,  DISPLACED  , 0, _nx , 0, _nz , _chamber_o, _chamber_o+1);                
+      }
   }
-    if( has_out_inlet ){
-      // #pragma omp parallel for num_threads (_nthreads)
-      for( int x=x0; x<xM; x++ ){
-      for( int y=y0; y<yM; y++ ){
-      for( int z=z0; z<zM; z++ ){
-        if( _mmorig(x,y,z)==INJECTED )
-          _mm(x,y,z) = INJECTED;
-      }}}
-    }
-  
-  
-  
-    //----------------------------------------------------------------------------
-    // If the fluid is incompressible, determine the trapped regions:
-    // 1 - Find expelled fluid regions disconnected to the expelled fluid reservoir
-    // 2 - Set this and past trapped voxels
-    // 3 - Save this pixels as expelled fluid
-    //----------------------------------------------------------------------------
-
+         
+    // If fluid is incompressible the disconect displaced regions must be keep
+    // in the final state.
     if( !_compressible ){
   
-      //--------------------------------------------------------------------------
-      // LOOP c1a:
-        // * Determines if a pixel is trapped or not
-      // #pragma omp parallel for num_threads (_nthreads)
       for( int x=0; x<_nx; x++ ){
       for( int y=0; y<_ny; y++ ){
       for( int z=0; z<_nz; z++ ){
 
-        if( _trapped(x,y,z) )
-          _mm(x,y,z) = DISPLACED;
-  
-        _matrix1(x,y,z) = (_mm(x,y,z)==DISPLACED)? FOREGROUND:BACKGROUND;
-      }}}
-      component_labeling( _matrix1, FOREGROUND, BACKGROUND );
-      
-    
-      xaux=_nx/2, yaux=_ny/2, zaux=_nz/2;
-      if     ( _iX ){ xaux=_chamber_o; }
-      else if( _iY ){ yaux=_chamber_o; }
-      else if( _iZ ){ zaux=_chamber_o; }
-      chamber_label = _matrix1(xaux,yaux,zaux);
-      
-      
+        if( trapped(x,y,z) )
+          workingImage(x,y,z) = DISPLACED;
+          _matrix1(x,y,z) = (workingImage(x,y,z)==DISPLACED)? FOREGROUND:BACKGROUND;
 
-      //--------------------------------------------------------------------------
-      // LOOP c2:
-      // * Replaces equivalent indices
-      // * All expelled fluid regions disconnected to the outlet are set as trapped.
-      //--------------------------------------------------------------------------
-  
-      // #pragma omp parallel for num_threads (_nthreads)
+      }}}
+
+      component_labeling( _matrix1, FOREGROUND, BACKGROUND );          
+      chamber_label = _matrix1( rChamberO[0], rChamberO[1], rChamberO[2]);     
+
       for( int x=0; x<_nx; x++ ){
       for( int y=0; y<_ny; y++ ){
       for( int z=0; z<_nz; z++ ){    
-  
-        if( _mm(x,y,z)==DISPLACED &&  _matrix1(x,y,z) != chamber_label )
-          _trapped(x,y,z)=true;
+        if( workingImage(x,y,z)==DISPLACED &&  _matrix1(x,y,z) != chamber_label ) trapped(x,y,z)=true;
       }}}
+    
     }
   
-        
-    // ---------------------------------------------------------------------------
-    // Creates .raw file
-  
-    bool createRAW=false;
+    int injectedVolume = 0,  displacedVolume =0;
+    for( int z= r_ini[2]; z< r_end[2]; z++ ) {
+      for( int y = r_ini[1]; y< r_end[1]; y++ ) {
+         for( int x= r_ini[0]; x< r_end[0]; x++ ) {
 
-    if( _saveImg==true && step== (int) _d.size()-1 )
-      createRAW=true;
-    
-    
+         if     ( workingImage(x,y,z) == INJECTED )  injectedVolume++;
+         else if( workingImage(x,y,z) == DISPLACED ) displacedVolume++;
 
-    FILE *FRAW;
-    if( createRAW ){
-      
-      xaux=_nx, yaux=_ny, zaux=_nz;
-      if     ( _iX ){ xaux = _nx-2; }
-      else if( _iY ){ yaux = _ny-2; }
-      else if( _iZ ){ zaux = _nz-2; }
-      
-      string saux = "invasion_diameters";
-      const string fraw = saux + ".raw";
-  
-      FRAW = fopen64(fraw.c_str(), "wb");
+         int16_t* value = &finalMap(x - r_ini[0],y- r_ini[1],z- r_ini[2]);
+         if( *value == -1 &&  workingImage(x,y,z) == INJECTED ) *value = (int16_t) D;
+         if( *value == -1 && originalImage(x,y,z) == SOLID ) *value = 0;
     }
-        
-        
-    // ---------------------------------------------------------------------------
-    // Last loop to save colors and count voxels occupied by each fluid
-    x0=0  , y0=0  , z0=0;
-    xM=_nx, yM=_ny, zM=_nz;
 
-    if(!_all_faces){
-    if     ( _iX ){ x0=1; xM = _nx-1; }
-    else if( _iY ){ y0=1; yM = _ny-1; }
-    else if( _iZ ){ z0=1; zM = _nz-1; } }
-    else{
-      if (dimx > 1){x0=1; xM = _nx-1;}
-      if (dimy > 1){y0=1; yM = _ny-1;}
-      if (dimz > 1){z0=1; zM = _nz-1;}
-      }
-
-    int Ninlet=0, Noutlet=0;
-    for( int z=z0; z<zM; z++ ){
-    for( int y=y0; y<yM; y++ ){
-    for( int x=x0; x<xM; x++ ){    
-      
-      iaux = _mm(x,y,z);
-
-      // if( _final_map(x,y,z) == -1 && _mm(x,y,z) == INJECTED ){
-      //   _final_map(x,y,z) = D;
-      // }
-
-      if     ( iaux==INJECTED ) Ninlet++;
-      else if( iaux==DISPLACED ) Noutlet++;
-      
-      // if( createRAW ){
-      //   int val = _final_map(x,y,z);
-      //   int16_t val_save = static_cast<int16_t>(val);
-      //   fwrite(&val_save, sizeof(int16_t), 1, FRAW);
-      // }
     }
     }
-    }
-    if( createRAW ) fclose(FRAW); 
-    
 
-//---------------------------------------------------------------
-//fills in .csv
-  FILE *log_file = fopen("injection_output.csv", "a");
-  fprintf(log_file, "%d %d %f %d %f %d %f\n", step, D, D * resolution, Ninlet, Ninlet/(1.0*_NP),
-         Noutlet, Noutlet/(1.0*_NP));
-  fclose(log_file);
+    if( _saveImg  && (D == _diameter.back() ) )
+    {
+      FILE *FRAW;  
 
+      FRAW = fopen("invasion_diameters.raw", "wb");
+      fwrite( finalMap.data() , sizeof(int16_t), finalMap.length(), FRAW);
+      fclose(FRAW); 
+
+      FILE *FMHD = fopen("invasion_diameters.mhd", "w");
+
+      fprintf(FMHD, "ObjectType = Image\n");
+      fprintf(FMHD, "NDims = 3\n");
+      fprintf(FMHD, "DimSize = %d %d %d\n", dimx , dimy, dimz );
+      fprintf(FMHD, "ElementType =  MET_SHORT\n");
+      fprintf(FMHD, "ElementSpacing = %.1f %.1f %.1f\n", resolution, resolution, resolution);
+      fprintf(FMHD, "ElementByteOrderMSB = False\n");
+      fprintf(FMHD, "ElementDataFile = %s\n", "invasion_diameters.raw");
+      fprintf(FMHD, "HeaderSize = 0\n");
+      fclose(FMHD);
+    }   
+
+    FILE *log_file = fopen("injection_output.csv", "a");
+    fprintf(log_file, "%d %d %f %d %f %d %f\n", step, D, D * resolution, injectedVolume, injectedVolume/(1.0*_NP),
+          displacedVolume, displacedVolume/(1.0*_NP));
+    fclose(log_file);
+
+    return D;
 
   }
-  
-  
+    
 #endif // FULL_MORPHOLOGY_HPP
-
