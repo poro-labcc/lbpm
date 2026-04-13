@@ -158,7 +158,7 @@ void edt_3d( unsigned char target, Array<TYPE> &image, IntArray &distance2)
     int* edt2 = distance2.data();
 
     for (int i = 0; i < (int) nvox; i++) {
-        edt2[i] = (img[i] == target) ? 0.0 : BIG;
+        edt2[i] = (img[i] == target) ? 0 : BIG;
     }
 
     for (int z = 0; z < nz; z++) {
@@ -253,7 +253,7 @@ class Full_Morphology{
 
     auto direction = fm_db->getScalar<std::string>("direction");
     checkOption( direction,  {"+x","-x","+y","-y","+z","-z","surround"} , "direction" );
-    
+
     iAxis[0] = (direction[1] == 'x');
     iAxis[1] = (direction[1] == 'y');
     iAxis[2] = (direction[1] == 'z');
@@ -310,17 +310,20 @@ class Full_Morphology{
       int rMin[3] = {0,0,0};
       int rMax[3] = {_nx,_ny,_nz};          
 
-      if (iAxis[i] && (!_all_faces))
-      {
-          _chamber_i = _iP ? 0 :  size[i] -1 ;
-          _chamber_o = _iP ? size[i] -1 : 0 ; 
-          rMin[i] = _chamber_o;  
-          rMax[i] = rMin[i] + 1;
-          setRegion( workingImage     ,  DISPLACED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
-      }
-      
-      rChamberI[i] = iAxis[i] ? _chamber_i : rMax[i] / 2;
-      rChamberO[i] = iAxis[i] ? _chamber_o : rMax[i] / 2;
+      if (!_all_faces) {
+          if (iAxis[i]  )
+          {
+            _chamber_i = _iP ? 0 :  size[i] -1 ;
+            _chamber_o = _iP ? size[i] -1 : 0 ;
+            rMin[i] = _chamber_o;
+            rMax[i] = rMin[i] + 1;
+            setRegion( workingImage     ,  DISPLACED  , rMin[0], rMax[0], rMin[1],rMax[1], rMin[2],rMax[2]);
+          }
+          rChamberI[i] = iAxis[i] ? _chamber_i : rMax[i] / 2;
+          rChamberO[i] = iAxis[i] ? _chamber_o : rMax[i] / 2;
+         }
+
+         else rChamberI[i] = 0;
     }
     
     int mapValue[255] = {-1};
@@ -399,7 +402,7 @@ class Full_Morphology{
     const int D = _diameter[step];
     const double D24 = D*D/4.0;
        
-    IntArray _matrix1 ( workingImage.size() );
+    IntArray _matrix1 ( _nx, _ny, _nz );
 
     // Set as FOREGROUND the eroded POROUS space with diameter D united
     for( int z=0; z<_nz; z++ ) {
@@ -480,8 +483,8 @@ class Full_Morphology{
           setRegion( workingImage     ,  DISPLACED  , 0, _nx , _chamber_o, _chamber_o+1, 0, _nz );           
       }
       else if( iAxis[2] ) {
-          setRegion( workingImage     ,  INJECTED   , 0, _nx , 0, _nz , _chamber_i, _chamber_i+1);
-          setRegion( workingImage     ,  DISPLACED  , 0, _nx , 0, _nz , _chamber_o, _chamber_o+1);                
+          setRegion( workingImage     ,  INJECTED   , 0, _nx , 0, _ny , _chamber_i, _chamber_i+1);
+          setRegion( workingImage     ,  DISPLACED  , 0, _nx , 0, _ny , _chamber_o, _chamber_o+1);
       }
   }
          
