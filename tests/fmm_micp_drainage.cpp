@@ -364,6 +364,7 @@ Full_Morphology::Full_Morphology(int argc, char *argv[]) {
         else if (size[0] > 1)
             flowAxis[0] = true;
     } else if (protocol == "drainage") {
+	allFaces = false;    
         auto direction = fm_db->getScalar<std::string>("direction");
         checkOption(direction, {"+x", "-x", "+y", "-y", "+z", "-z"},
                     "direction");
@@ -414,6 +415,7 @@ Full_Morphology::Full_Morphology(int argc, char *argv[]) {
     workingImage.fill(INJECTED);
     trapped.fill(false);
 
+    
     // If injecting in a certain direction  then set the first or last faces as DISPLACED fluid
     for (int i = 0; i < 3; i++) {
         int rMin[3] = {0, 0, 0};
@@ -428,7 +430,7 @@ Full_Morphology::Full_Morphology(int argc, char *argv[]) {
                 setRegion(workingImage, DISPLACED, rMin[0], rMax[0], rMin[1],
                           rMax[1], rMin[2], rMax[2]);
             }
-            rChamberI[i] = flowAxis[i] ? inletPos : rMax[i] / 2;
+   	    rChamberI[i] = flowAxis[i] ? inletPos : rMax[i] / 2;
             rChamberO[i] = flowAxis[i] ? outletPos : rMax[i] / 2;
         }
 
