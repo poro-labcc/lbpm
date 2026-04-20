@@ -65,7 +65,6 @@
 
 using namespace std;
 
-// He, Chao, Suzuki, 2008, page 752
 void merge(const int &u, const int &v, vector<int> &next, vector<int> &tail,
            vector<int> &rtable) {
     for (int i = v; i != -1;) {
@@ -127,26 +126,19 @@ void component_labeling(IntArray &IMG, const int &F, const int &B) {
 
                     switch (nuniq) {
 
-                    // ---------------------------------------------------------------------
-                    // Case 0: All neighbors are background
                     case 0:
                         nl++;
                         lx = nl;
 
-                        // He, Chao, Suzuki, 2008, pág 752
                         rtable[nl] = nl;
                         next[nl] = -1;
                         tail[nl] = nl;
                         break;
 
-                    // ---------------------------------------------------------------------
-                    // Case 1: Only one label among the neighbors
                     case 1:
                         lx = uniq_labels[0];
                         break;
 
-                    // ---------------------------------------------------------------------
-                    // Case 2: There are two different labels among the neighbors
                     case 2:
 
                         resolve(uniq_labels[0], uniq_labels[1], next, tail,
@@ -155,8 +147,6 @@ void component_labeling(IntArray &IMG, const int &F, const int &B) {
                         lx = min(uniq_labels[0], uniq_labels[1]);
                         break;
 
-                    // ---------------------------------------------------------------------
-                    // Case 3: There are three different labels among the neighbors
                     case 3:
 
                         resolve(uniq_labels[0], uniq_labels[1], next, tail,
@@ -177,7 +167,6 @@ void component_labeling(IntArray &IMG, const int &F, const int &B) {
         }
     }
 
-    // Update merged labels
     int *img = IMG.data();
 
     for (size_t n = 0; n < IMG.length(); n++) {
