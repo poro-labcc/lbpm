@@ -1,3 +1,9 @@
+/*
+ * Full morphology MICP and drainage simulations.
+ * The input geometry is stored as a raw binary file and the output reports
+ * the injected and displaced phase volumes for each invasion diameter.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -79,28 +85,24 @@ void component_labeling(IntArray &IMG, const int &F, const int &B) {
                         nuniq++;
                     }
 
+                    // Deals with non unique labels in neighboaring points by unifying them
                     switch (nuniq) {
 
-                    // ---------------------------------------------------------------------
-                    // Case 0: All neighbors are background
                     case 0:
                         nl++;
                         lx = nl;
 
-                        // He, Chao, Suzuki, 2008, pág 752
+                        // He, Chao, Suzuki, 2008, page 752
                         rtable[nl] = nl;
                         next[nl] = -1;
                         tail[nl] = nl;
                         break;
 
-                    // ---------------------------------------------------------------------
-                    // Case 1: Only one label among the neighbors
                     case 1:
                         lx = uniq_labels[0];
                         break;
 
                     // ---------------------------------------------------------------------
-                    // Case 2: There are two different labels among the neighbors
                     case 2:
 
                         resolve(uniq_labels[0], uniq_labels[1], next, tail,
@@ -109,8 +111,6 @@ void component_labeling(IntArray &IMG, const int &F, const int &B) {
                         lx = min(uniq_labels[0], uniq_labels[1]);
                         break;
 
-                    // ---------------------------------------------------------------------
-                    // Case 3: There are three different labels among the neighbors
                     case 3:
 
                         resolve(uniq_labels[0], uniq_labels[1], next, tail,
@@ -141,12 +141,14 @@ void component_labeling(IntArray &IMG, const int &F, const int &B) {
     }
 }
 
+// Compute the intersection between two lower-envelope parabolas.
 static inline float intersection(int q, int vk, float fq, float fvk) {
     float qq = (float)q * (float)q;
     float vv = (float)vk * (float)vk;
     return ((fq + qq) - (fvk + vv)) / (2.0 * ((float)q - (float)vk));
 }
 
+// Compute the exact squared Euclidean distance transform for a 1D line.
 void edt_1d(const int *f, int *g, int n) {
     int *v = (int *)malloc((size_t)n * sizeof(int));
     float *z = (float *)malloc((size_t)(n + 1) * sizeof(float));
@@ -207,6 +209,7 @@ void edt_1d(const int *f, int *g, int n) {
     free(z);
 }
 
+// Copy one strided line, transform it in 1D, and write it back.
 void process_line(int *edt2, const size_t first, const size_t stride, int n) {
 
     IntArray f(n);
@@ -239,6 +242,7 @@ void edt_3d(unsigned char target, Array<TYPE> &image, IntArray &distance2) {
     TYPE *img = image.data();
     int *edt2 = distance2.data();
 
+    // Initialize target voxels with zero distance and all others with a large value.
     for (int i = 0; i < (int)nvox; i++) {
         edt2[i] = (img[i] == target) ? 0 : BIG;
     }
@@ -262,6 +266,7 @@ void edt_3d(unsigned char target, Array<TYPE> &image, IntArray &distance2) {
     }
 }
 
+// Validate database options and report the accepted values on failure.
 void checkOption(std::string a, std::vector<string> s, std::string keyName) {
     std::string message = "Error: Invalid option '" + a + "' for " + keyName +
                           ". Valid options are: ";
@@ -294,7 +299,7 @@ public:
     std::vector<int> r_end = {0, 0, 0};
 
     std::vector<int> flowAxis = {
-        false, false, false}; // If injection occour in the specified axis
+        false, false, false}; // Injection occurs along the selected axis
     bool flowPos = false;     // Sense of invasion
 
     int ny, nx, nz;          // Work dimensions (with reservoirs, if any)
@@ -307,11 +312,11 @@ public:
 
     double resolution;
 
-    vector<int> diameter; // Diameter
+    vector<int> diameter; // Invasion diameters
 
-    bool compressible = false; // Compressibility, set as true for MICP
+    bool compressible = false; // Compressibility, enabled for MICP
 
-    bool allFaces; // Surrounds the image for MICP
+    bool allFaces; // Add reservoirs around all active faces for MICP
     bool saveImg;
 
     UCharArray originalImage; // Original image, used for reference
@@ -394,7 +399,7 @@ Full_Morphology::Full_Morphology(int argc, char *argv[]) {
     dimy = ny;
     dimz = nz;
 
-    // Add aditional layer for input/output reservoirs
+    // Add additional layers for input/output reservoirs.
     for (int i = 0; i < 3; i++) {
         if (((flowAxis[i]) && (!allFaces)) || ((size[i] > 1) && (allFaces))) {
             size[i] += 2;
@@ -415,8 +420,7 @@ Full_Morphology::Full_Morphology(int argc, char *argv[]) {
     workingImage.fill(INJECTED);
     trapped.fill(false);
 
-    
-    // If injecting in a certain direction  then set the first or last faces as DISPLACED fluid
+    // For directional injection, set the outlet face to DISPLACED fluid.
     for (int i = 0; i < 3; i++) {
         int rMin[3] = {0, 0, 0};
         int rMax[3] = {nx, ny, nz};
@@ -471,7 +475,7 @@ Full_Morphology::Full_Morphology(int argc, char *argv[]) {
     }
 
     fseek(rawFile, 0,
-          SEEK_BEGIN); // Move to beginning of the file to start reading
+          SEEK_BEGIN); // Move to the beginning of the file before reading.
 
     unsigned char readValue;
 
@@ -498,10 +502,10 @@ Full_Morphology::Full_Morphology(int argc, char *argv[]) {
     fclose(rawFile);
     originalImage = workingImage;
 
-    // Calculates originalImage EDT
+    // Calculate the distance transform of the original solid phase.
     edt_3d(SOLID, originalImage, originalEDT);
 
-    //Creates output file .csv and header
+    // Create the output CSV file and header when needed.
     bool WriteHeader = false;
     FILE *log_file = fopen("injection_output.csv", "r");
     if (log_file != NULL)
@@ -524,112 +528,101 @@ int Full_Morphology::calc(const int &step) {
 
     IntArray auxMatrix(nx, ny, nz);
 
-    // Set as FOREGROUND the eroded POROUS space with diameter D united
+    // Mark the candidate invaded region as the region where the center of a
+    // D diameter sphere can be placed (erosion of the solid region) united with the reservoir.
     for (int z = 0; z < nz; z++) {
         for (int y = 0; y < ny; y++) {
-            for (int x = 0; x < nx; x++) {
-
-                if (originalEDT(x, y, z) < D24) {
-                    // Possible invaded region is selected as the one where the sphere fits and the one which it not located
-                    // at the DISPLACED fluid reservoir or SOLID
-                    auxMatrix(x, y, z) = (originalImage(x, y, z) == INJECTED)
-                                             ? FOREGROUND
-                                             : BACKGROUND;
-                } else
-                    auxMatrix(x, y, z) = FOREGROUND;
+            for (int x = 0; x < nx; x++) { 
+ 		auxMatrix(x, y, z) = (originalEDT(x, y, z) >= D24) || (originalImage(x, y, z) == INJECTED) ? FOREGROUND : BACKGROUND;
             }
         }
     }
 
-    // Label the eroded regions
     component_labeling(auxMatrix, FOREGROUND, BACKGROUND);
 
-    // Extract the label associated with the injection layer
+    // Extract the label associated with the injection layer.
     int chamber_label = auxMatrix(rChamberI[0], rChamberI[1], rChamberI[2]);
 
+    // Filter only the voxels connected to the input where the center of a a sphere with the specified diameter
+    // can be placed.
     for (int z = 0; z < nz; z++) {
         for (int y = 0; y < ny; y++) {
             for (int x = 0; x < nx; x++) {
-                if (auxMatrix(x, y, z) == chamber_label) {
-                    auxMatrix(x, y, z) = (originalEDT(x, y, z) < D24 &&
-                                          originalImage(x, y, z) == INJECTED)
-                                             ? BACKGROUND
-                                             : FOREGROUND;
-                } else {
-                    auxMatrix(x, y, z) = BACKGROUND;
-                }
+		    auxMatrix(x, y, z) = (originalEDT(x, y, z) >= D24 && auxMatrix(x,y,z) == chamber_label) ? FOREGROUND : BACKGROUND;
             }
         }
     }
 
+    // Compute the distance from the filtered region
     edt_3d(FOREGROUND, auxMatrix, auxMatrix);
 
+    // Perform the dilation of the filtered region and performs the union of this result
+    // with the previous step stored at the workingImage
     for (int z = 0; z < nz; z++) {
         for (int y = 0; y < ny; y++) {
             for (int x = 0; x < nx; x++) {
-
                 if (auxMatrix(x, y, z) < D24) {
                     workingImage(x, y, z) = INJECTED;
                 }
-                auxMatrix(x, y, z) = (workingImage(x, y, z) == INJECTED)
+      		auxMatrix(x, y, z) = (workingImage(x, y, z) == INJECTED)
                                          ? FOREGROUND
                                          : BACKGROUND;
             }
         }
     }
 
+
     component_labeling(auxMatrix, FOREGROUND, BACKGROUND);
     chamber_label = auxMatrix(rChamberI[0], rChamberI[1], rChamberI[2]);
 
-    for (int z = 0; z < nz; z++) {
-        for (int y = 0; y < ny; y++) {
-            for (int x = 0; x < nx; x++) {
+//    for (int z = 0; z < nz; z++) {
+//        for (int y = 0; y < ny; y++) {
+//            for (int x = 0; x < nx; x++) {
+//
+//                bool rG = (workingImage(x, y, z) == INJECTED);
 
-                // G region: L U H   eq.6
-                bool rG = (workingImage(x, y, z) == INJECTED);
+//                if (flowAxis[0]) {
+//                    rG = (rG || x == inletPos);
+//                } else if (flowAxis[1]) {
+//                    rG = (rG || y == inletPos);
+//                } else if (flowAxis[2]) {
+//                    rG = (rG || z == inletPos);
+//                }
 
-                if (flowAxis[0]) {
-                    rG = (rG || x == inletPos);
-                } else if (flowAxis[1]) {
-                    rG = (rG || y == inletPos);
-                } else if (flowAxis[2]) {
-                    rG = (rG || z == inletPos);
-                }
+//                bool rO = (rG && auxMatrix(x, y, z) == chamber_label);
 
-                // Operador K, generates Omega region   eq.11
-                bool rO = (rG && auxMatrix(x, y, z) == chamber_label);
+//                if (rO) {
+//                    workingImage(x, y, z) = INJECTED;
+//                } else {
+ //                   if (workingImage(x, y, z) != SOLID)
+ //                       workingImage(x, y, z) = DISPLACED;
+ //               }
+//            }
+//        }
+//    }
 
-                if (rO) {
-                    workingImage(x, y, z) = INJECTED;
-                } else {
-                    if (workingImage(x, y, z) != SOLID)
-                        workingImage(x, y, z) = DISPLACED;
-                }
-            }
-        }
-    }
-
+    // Readds the DISPLACED fluid output layer
     if (!allFaces) {
 
         if (flowAxis[0]) {
-            setRegion(workingImage, INJECTED, inletPos, inletPos + 1, 0, ny, 0,
-                      nz);
+//            setRegion(workingImage, INJECTED, inletPos, inletPos + 1, 0, ny, 0,
+//                      nz);
             setRegion(workingImage, DISPLACED, outletPos, outletPos + 1, 0, ny,
                       0, nz);
         } else if (flowAxis[1]) {
-            setRegion(workingImage, INJECTED, 0, nx, inletPos, inletPos + 1, 0,
-                      nz);
+//            setRegion(workingImage, INJECTED, 0, nx, inletPos, inletPos + 1, 0,
+ //                    nz);
             setRegion(workingImage, DISPLACED, 0, nx, outletPos, outletPos + 1,
                       0, nz);
         } else if (flowAxis[2]) {
-            setRegion(workingImage, INJECTED, 0, nx, 0, ny, inletPos,
-                      inletPos + 1);
+//            setRegion(workingImage, INJECTED, 0, nx, 0, ny, inletPos,
+//                      inletPos + 1);
             setRegion(workingImage, DISPLACED, 0, nx, 0, ny, outletPos,
                       outletPos + 1);
         }
     }
 
-    // If fluid is incompressible the disconect displaced regions must be keep
+    // For incompressible flow, disconnected displaced regions remain trapped
     // in the final state.
     if (!compressible) {
 
@@ -715,6 +708,7 @@ int main(int argc, char *argv[]) {
 
     if (argc != 2)
         ERROR("Wrong number of parameters.");
+
     Full_Morphology fm(argc, argv);
 
     const int nsteps = fm.diameter.size();
