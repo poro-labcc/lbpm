@@ -1,3 +1,49 @@
+/*
+  Copyright 2026
+  Diogo Nardelli Siebert, Universidade Federal de Santa Catarina
+  Bernardo Gehlen, Universidade Federal de Santa Catarina
+  Alexandre Miers Zabot, Universidade Federal de Santa Catarina
+
+  This file is part of the Open Porous Media project (OPM).
+
+  OPM is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the :contentReference[oaicite:0]{index=0}, either version 3 of the License, or
+  (at your option) any later version.
+
+  OPM is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with OPM. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*
+  ----------------------------------------------------------------------
+  Methodological Notes
+
+  This file implements the method described in:
+
+  A. M. Zabot et al.,
+  "A Unified Algorithm for the Young–Laplace Method Applied to Porous Media,"
+  Brazilian Journal of Physics, vol. 54, no. 3, 2024, p. 63.
+
+  The distance transform is computed using the method from:
+
+  P. F. Felzenszwalb and D. P. Huttenlocher,
+  "Distance transforms of sampled functions,"
+  Theory of Computing, vol. 8, no. 1, pp. 415–428, 2012.
+
+  Connected component labeling is based on:
+
+  L. He, Y. Chao, and K. Suzuki,
+  "A run-based two-scan labeling algorithm,"
+  IEEE Transactions on Image Processing, vol. 17, no. 5, pp. 749–756, 2008.
+  ----------------------------------------------------------------------
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
